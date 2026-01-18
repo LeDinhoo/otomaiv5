@@ -2409,6 +2409,7 @@ name = "otomaiv5"
 version = "0.1.0"
 dependencies = [
  "enigo",
+ "regex",
  "serde",
  "serde_json",
  "tauri",
