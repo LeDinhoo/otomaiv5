@@ -1,6 +1,6 @@
-use windows::Win32::UI::WindowsAndMessaging::{EnumWindows, GetWindowTextW, IsWindowVisible};
-use windows::Win32::Foundation::{HWND, LPARAM, BOOL};
 use regex::Regex;
+use windows::Win32::Foundation::{BOOL, HWND, LPARAM};
+use windows::Win32::UI::WindowsAndMessaging::{EnumWindows, GetWindowTextW, IsWindowVisible};
 
 struct SearchContext {
     regex: Regex,
@@ -10,9 +10,14 @@ struct SearchContext {
 pub fn find_specific_game_window(character_name: &str) -> Option<String> {
     // Le regex devient : ^NomDuPerso - .* - \d+(\.\d+)* - Release$
     // On utilise regex::escape pour éviter les erreurs si le nom a des caractères spéciaux
-    let pattern = format!(r"^{} - .* - \d+(\.\d+)* - Release$", regex::escape(character_name));
-    
-    let Ok(re) = Regex::new(&pattern) else { return None };
+    let pattern = format!(
+        r"^{} - .* - \d+(\.\d+)* - Release$",
+        regex::escape(character_name)
+    );
+
+    let Ok(re) = Regex::new(&pattern) else {
+        return None;
+    };
 
     let mut context = SearchContext {
         regex: re,

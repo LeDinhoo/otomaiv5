@@ -1,4 +1,3 @@
-
 // Position du Zaap havre-sac
 pub const POS_ZAAP_INPUT: (i32, i32) = (725, 497);
 

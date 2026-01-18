@@ -1,9 +1,9 @@
 // src-tauri/src/methods/travel_with_zaap.rs
-use std::thread;
-use std::time::Duration;
-use crate::methods::{press_key, type_text, config};
+use crate::methods::{config, press_key, type_text};
 use crate::mouse_manager::MouseManager;
-use crate::window_manager::WindowManager; //
+use crate::window_manager::WindowManager;
+use std::thread;
+use std::time::Duration; //
 
 pub fn travel_with_zaap(destination: &str, window_title: &str) -> Result<String, String> {
     // 1. Remettre le focus sur la fenêtre avant toute chose
@@ -23,9 +23,9 @@ pub fn travel_with_zaap(destination: &str, window_title: &str) -> Result<String,
 
     // 4. Click à la position du champ Zaap définie dans config.rs (725, 497)
     mouse.click_at_position(
-        window_title, 
-        config::POS_ZAAP_INPUT.0, 
-        config::POS_ZAAP_INPUT.1
+        window_title,
+        config::POS_ZAAP_INPUT.0,
+        config::POS_ZAAP_INPUT.1,
     )?; //
 
     // Pause pour s'assurer que le clic a activé le champ de texte
@@ -37,5 +37,8 @@ pub fn travel_with_zaap(destination: &str, window_title: &str) -> Result<String,
     // 6. Appui sur Enter via SendInput natif
     press_key::press_key_multiple_times("enter", 1)?;
 
-    Ok(format!("Voyage vers '{}' effectué avec focus.", destination))
+    Ok(format!(
+        "Voyage vers '{}' effectué avec focus.",
+        destination
+    ))
 }

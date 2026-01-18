@@ -43,6 +43,12 @@
   --font-sans: "Geraldton", ui-sans-serif, system-ui, sans-serif;
 
   --font-geraldton: "Geraldton";
+  --color-dofus-quest: #ff76d7;
+  --color-dofus-item: #ffcc00;
+  --color-dofus-monster: #ff5e5e;
+  --color-dofus-dungeon: #00ff00;
+  --color-dofus-link: #4da6ff;
+  --color-dofus-panel: #202025;
 }
 
 @layer base {

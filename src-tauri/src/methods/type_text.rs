@@ -1,6 +1,6 @@
 use windows::Win32::UI::Input::KeyboardAndMouse::{
-    SendInput, INPUT, INPUT_0, INPUT_KEYBOARD, KEYBDINPUT, 
-    KEYEVENTF_KEYUP, KEYEVENTF_UNICODE, VIRTUAL_KEY
+    SendInput, INPUT, INPUT_0, INPUT_KEYBOARD, KEYBDINPUT, KEYEVENTF_KEYUP, KEYEVENTF_UNICODE,
+    VIRTUAL_KEY,
 };
 
 pub fn type_text_fast(text: &str) -> Result<String, String> {

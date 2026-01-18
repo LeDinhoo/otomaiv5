@@ -11,6 +11,26 @@
     "core:window:allow-close",
     "core:window:allow-set-size",
     "core:window:allow-minimize",
-    "core:window:allow-maximize"
+    "core:window:allow-maximize",
+    "http:default",
+    "http:allow-fetch",
+    {
+      "identifier": "http:default",
+      "allow": [{ "url": "https://*.tauri.app" }],
+      "deny": [{ "url": "https://private.tauri.app" }]
+    },
+    {
+      "identifier": "http:allow-fetch",
+      "allow": [{ "url": "https://ganymede-app.com/guides/*/export" }]
+    },
+    "fs:default",
+    {
+      "identifier": "fs:allow-app-write-recursive",
+      "allow": [{ "path": "guides/*" }]
+    },
+    {
+      "identifier": "fs:allow-app-read-recursive",
+      "allow": [{ "path": "guides/*" }]
+    }
   ]
 }

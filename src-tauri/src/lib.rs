@@ -4,8 +4,8 @@ use window_manager::WindowManager;
 mod mouse_manager;
 use mouse_manager::MouseManager;
 
-mod window_finder;
 mod methods;
+mod window_finder;
 
 #[tauri::command]
 fn greet(name: &str) -> String {
@@ -26,8 +26,12 @@ fn click_window_at(title: String, x: i32, y: i32) -> Result<String, String> {
 
 #[tauri::command]
 fn get_game_title_by_name(character_name: String) -> Result<String, String> {
-    window_finder::find_specific_game_window(&character_name)
-        .ok_or_else(|| format!("Fenêtre pour le personnage '{}' introuvable.", character_name))
+    window_finder::find_specific_game_window(&character_name).ok_or_else(|| {
+        format!(
+            "Fenêtre pour le personnage '{}' introuvable.",
+            character_name
+        )
+    })
 }
 
 #[tauri::command]
@@ -60,9 +64,11 @@ fn use_potion_brakmar(window_title: String) -> Result<String, String> {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_fs::init())
+        .plugin(tauri_plugin_http::init())
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
-            greet, 
+            greet,
             focus_window,
             click_window_at,
             get_game_title_by_name,

@@ -1,7 +1,7 @@
-use windows::Win32::Foundation::{RECT};
-use windows::Win32::UI::WindowsAndMessaging::{GetWindowRect, FindWindowW};
-use windows::core::{PCWSTR, HSTRING};
-use enigo::{Enigo, Mouse, Settings, Coordinate, Button, Direction}; 
+use enigo::{Button, Coordinate, Direction, Enigo, Mouse, Settings};
+use windows::core::{HSTRING, PCWSTR};
+use windows::Win32::Foundation::RECT;
+use windows::Win32::UI::WindowsAndMessaging::{FindWindowW, GetWindowRect};
 
 pub struct MouseManager;
 
@@ -16,7 +16,7 @@ impl MouseManager {
             // 1. Recherche de la fenêtre
             let window_title = HSTRING::from(title);
             let title_pcwstr = PCWSTR::from_raw(window_title.as_ptr());
-            
+
             let result = FindWindowW(None, title_pcwstr);
             let hwnd = match result {
                 Ok(h) if h.0.is_null() => return Err(format!("Fenêtre '{}' non trouvée", title)),
@@ -38,14 +38,19 @@ impl MouseManager {
                 .map_err(|e| format!("Erreur d'initialisation Enigo: {:?}", e))?;
 
             // 4. Mouvement de la souris vers la position calculée
-            enigo.move_mouse(target_x, target_y, Coordinate::Abs)
+            enigo
+                .move_mouse(target_x, target_y, Coordinate::Abs)
                 .map_err(|e| format!("Erreur de mouvement: {:?}", e))?;
-            
+
             // 5. Clic
-            enigo.button(Button::Left, Direction::Click)
+            enigo
+                .button(Button::Left, Direction::Click)
                 .map_err(|e| format!("Erreur de clic: {:?}", e))?;
 
-            Ok(format!("Clic effectué à ({}, {}) [Relatif: {}, {}]", target_x, target_y, x, y))
+            Ok(format!(
+                "Clic effectué à ({}, {}) [Relatif: {}, {}]",
+                target_x, target_y, x, y
+            ))
         }
     }
 }
