@@ -130,7 +130,7 @@
     </p>
 
     <div class="flex items-center gap-2">
-      <Button variant="secondary" size="icon" onclick={prevPage} disabled={currentPage === 1}>
+      <Button variant="secondary" size="sm" onclick={prevPage} disabled={currentPage === 1}>
         <ChevronLeft class="w-4 h-4" />
       </Button>
       
@@ -138,7 +138,7 @@
         {currentPage} / {totalPages || 1}
       </span>
 
-      <Button variant="secondary" size="icon" onclick={nextPage} disabled={currentPage >= totalPages}>
+      <Button variant="secondary" size="sm" onclick={nextPage} disabled={currentPage >= totalPages}>
         <ChevronRight class="w-4 h-4" />
       </Button>
     </div>

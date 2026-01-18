@@ -3,55 +3,91 @@
   import { ChevronLeft, ChevronRight, MapPin } from "@lucide/svelte";
 
   // Props
-  let { guide, stepIndex = $bindable(0), onPrev, onNext } = $props();
+  let { 
+    guide, 
+    stepIndex = $bindable(0), 
+    checkboxState = $bindable({}), 
+    onPrev, 
+    onNext,
+    // NOUVEAU : Callback pour demander au parent de changer de guide
+    onNavigate 
+  } = $props();
 
-  // Variables dérivées
   let currentStep = $derived(guide.steps[stepIndex]);
+  let progressPercentage = $derived(((stepIndex + 1) / guide.steps.length) * 100);
 
-  // Calcul du pourcentage pour la barre de progression
-  let progressPercentage = $derived(
-    ((stepIndex + 1) / guide.steps.length) * 100,
-  );
+  let contentDiv: HTMLElement;
 
-  // Gestion du changement manuel d'étape
-  function handleStepInput(e: Event) {
-    const input = e.target as HTMLInputElement;
-    const val = parseInt(input.value);
+  // --- GESTION DES CLICS (NAVIGATION) ---
+  function handleContentClick(event: MouseEvent) {
+    const target = event.target as HTMLElement;
+    
+    // On cherche si l'élément cliqué (ou son parent) est un lien d'étape
+    // On supporte ta classe .guide-step ET l'attribut data-type="guide-step"
+    const stepLink = target.closest('[data-type="guide-step"], .guide-step');
 
-    if (!isNaN(val) && val >= 1 && val <= guide.steps.length) {
-      stepIndex = val - 1;
-    } else {
-      input.value = (stepIndex + 1).toString();
+    if (stepLink) {
+        event.preventDefault(); // On empêche le comportement par défaut si c'était un lien
+
+        const targetGuideId = stepLink.getAttribute("guideid");
+        const targetStepNum = parseInt(stepLink.getAttribute("stepnumber") || "1");
+        
+        // Calcul de l'index (Step 1 = Index 0)
+        const targetIndex = Math.max(0, targetStepNum - 1);
+
+        // CAS 1 : C'est le guide actuel (ID "0" ou ID identique)
+        // (Note: on compare en string car les attributs HTML sont des strings)
+        if (targetGuideId === "0" || targetGuideId == guide.id) {
+            console.log("Navigation locale vers étape", targetIndex);
+            stepIndex = targetIndex;
+        } 
+        // CAS 2 : C'est un autre guide -> On prévient le parent
+        else if (onNavigate) {
+            console.log("Navigation externe vers guide", targetGuideId, "étape", targetIndex);
+            onNavigate(targetGuideId, targetIndex);
+        }
     }
   }
 
-  // FONCTION MAGIQUE : Détecte [x,y] ou [x, y] et ajoute une classe
-  let formattedText = $derived.by(() => {
-    if (!currentStep?.web_text) return "";
+  // --- GESTION DES CHECKBOXES ---
+  $effect(() => {
+    if (!contentDiv) return;
 
-    // Regex qui cherche : [ suivi de chiffres (positifs ou négatifs), virgule, chiffres ]
-    const posRegex = /\[(-?\d+)\s*,\s*(-?\d+)\]/g;
+    const inputs = contentDiv.querySelectorAll('input[type="checkbox"]');
+    if (!checkboxState[stepIndex]) checkboxState[stepIndex] = [];
 
-    return currentStep.web_text.replace(posRegex, (match) => {
-      return `<span class="inline-pos">${match}</span>`;
+    inputs.forEach((input: HTMLInputElement, index) => {
+        input.checked = checkboxState[stepIndex][index] || false;
+        input.onchange = () => {
+            checkboxState[stepIndex][index] = input.checked;
+            checkboxState = { ...checkboxState };
+        };
     });
   });
 
+  // --- Fonctions utilitaires (Texte, Input, etc.) ---
+  function handleStepInput(e: Event) {
+    const input = e.target as HTMLInputElement;
+    const val = parseInt(input.value);
+    if (!isNaN(val) && val >= 1 && val <= guide.steps.length) stepIndex = val - 1;
+    else input.value = (stepIndex + 1).toString();
+  }
+
+  let formattedText = $derived.by(() => {
+    if (!currentStep?.web_text) return "";
+    const posRegex = /\[(-?\d+)\s*,\s*(-?\d+)\]/g;
+    return currentStep.web_text.replace(posRegex, (match) => `<span class="inline-pos">${match}</span>`);
+  });
+
   function handleKeydown(e: KeyboardEvent) {
-    if (e.key === "Enter") {
-      (e.target as HTMLInputElement).blur();
-    }
+    if (e.key === "Enter") (e.target as HTMLInputElement).blur();
   }
 </script>
 
 <div class="flex flex-col h-full">
-  <div
-    class="flex-none pt-2 pb-0 border-b border-stone-800 bg-stone-900 z-10 flex flex-col gap-2 select-none"
-  >
+  <div class="flex-none pt-2 pb-0 border-b border-stone-800 bg-stone-900 z-10 flex flex-col gap-2 select-none">
     <div class="flex justify-between items-end px-1">
-      <div
-        class="flex items-center gap-1.5 text-orange-500/80 hover:text-orange-500 hover:cursor-pointer font-mono text-xs px-2 py-0.5 rounded"
-      >
+      <div class="flex items-center gap-1.5 text-orange-500/80 hover:text-orange-500 hover:cursor-pointer font-mono text-xs px-2 py-0.5 rounded">
         <MapPin class="w-3 h-3 " />
         {#if currentStep && (currentStep.pos_x !== 0 || currentStep.pos_y !== 0)}
           [{currentStep.pos_x}, {currentStep.pos_y}]
@@ -59,34 +95,24 @@
           [---, ---]
         {/if}
       </div>
-
-      <div
-        class="text-xs text-stone-500 font-mono pr-2 shrink-0 flex items-center"
-      >
+      <div class="text-xs text-stone-500 font-mono pr-2 shrink-0 flex items-center">
         <span>Étape</span>
-        <input
-          type="text"
-          class="bg-transparent border-none p-0 mx-1 w-[3ch] text-center text-stone-500 font-mono focus:text-stone-200 focus:outline-none focus:bg-stone-800/50 rounded transition-colors cursor-text hover:text-stone-300"
-          value={stepIndex + 1}
-          onchange={handleStepInput}
-          onkeydown={handleKeydown}
-        />
+        <input type="text" class="bg-transparent border-none p-0 mx-1 w-[3ch] text-center text-stone-500 font-mono focus:text-stone-200 focus:outline-none focus:bg-stone-800/50 rounded transition-colors cursor-text hover:text-stone-300" value={stepIndex + 1} onchange={handleStepInput} onkeydown={handleKeydown} />
         <span>/ {guide.steps.length}</span>
       </div>
     </div>
-
-    <div
-      class="w-full h-[2px] bg-stone-800 rounded-full overflow-hidden mb-[-1px]"
-    >
-      <div
-        class="h-full bg-green-400 transition-all duration-300 ease-out shadow-[0_0_10px_rgba(234,88,12,0.5)]"
-        style="width: {progressPercentage}%"
-      ></div>
+    <div class="w-full h-[2px] bg-stone-800 rounded-full overflow-hidden mb-[-1px]">
+      <div class="h-full bg-green-400 transition-all duration-300 ease-out shadow-[0_0_10px_rgba(234,88,12,0.5)]" style="width: {progressPercentage}%"></div>
     </div>
   </div>
 
   <div
-    class="flex-1 overflow-y-auto p-4 custom-scrollbar guide-content bg-stone-950/30"
+    bind:this={contentDiv}
+    onclick={handleContentClick}
+    role="button" 
+    tabindex="0"
+    onkeydown={() => {}}
+    class="flex-1 overflow-y-auto p-4 custom-scrollbar guide-content bg-stone-950/30 text-left cursor-auto"
   >
     {#if currentStep}
       <div class="text-stone-300">
@@ -97,24 +123,11 @@
     {/if}
   </div>
 
-  <div
-    class="flex-none p-2 border-t border-stone-800 bg-stone-900 flex justify-between items-center gap-4 select-none"
-  >
-    <Button
-      variant="secondary"
-      onclick={onPrev}
-      disabled={stepIndex === 0}
-      class="w-28 select-none"
-    >
+  <div class="flex-none p-2 border-t border-stone-800 bg-stone-900 flex justify-between items-center gap-4 select-none">
+    <Button variant="secondary" onclick={onPrev} disabled={stepIndex === 0} class="w-28 select-none">
       <ChevronLeft class="w-4 h-4 mr-1" /> Précédent
     </Button>
-
-    <Button
-      variant="default"
-      onclick={onNext}
-      disabled={stepIndex === guide.steps.length - 1}
-      class="w-28 bg-orange-700 hover:bg-orange-600 select-none"
-    >
+    <Button variant="default" onclick={onNext} disabled={stepIndex === guide.steps.length - 1} class="w-28 bg-orange-700 hover:bg-orange-600 select-none">
       Suivant <ChevronRight class="w-4 h-4 ml-1" />
     </Button>
   </div>
