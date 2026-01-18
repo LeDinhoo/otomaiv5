@@ -23,6 +23,10 @@
       "identifier": "http:allow-fetch",
       "allow": [{ "url": "https://ganymede-app.com/guides/*/export" }]
     },
+    {
+      "identifier": "http:allow-fetch",
+      "allow": [{ "url": "https://ganymede-app.com/guides" }]
+    },
     "fs:default",
     {
       "identifier": "fs:allow-app-write-recursive",

@@ -3,21 +3,66 @@
   import { ChevronLeft, ChevronRight } from "@lucide/svelte";
 
   // Props
-  let { guide, stepIndex = 0, onPrev, onNext } = $props();
+  // On utilise $bindable() pour stepIndex afin de pouvoir le modifier depuis l'input
+  let { guide, stepIndex = $bindable(0), onPrev, onNext } = $props();
 
   // Variables dérivées
   let currentStep = $derived(guide.steps[stepIndex]);
+
+  // Calcul du pourcentage pour la barre de progression
+  let progressPercentage = $derived(
+    ((stepIndex + 1) / guide.steps.length) * 100,
+  );
+
+  // Gestion du changement manuel d'étape
+  function handleStepInput(e: Event) {
+    const input = e.target as HTMLInputElement;
+    const val = parseInt(input.value);
+
+    // Validation : Est-ce un nombre valide dans les bornes du guide ?
+    if (!isNaN(val) && val >= 1 && val <= guide.steps.length) {
+      stepIndex = val - 1; // On met à jour (index 0)
+    } else {
+      // Si invalide, on remet la valeur actuelle
+      input.value = (stepIndex + 1).toString();
+    }
+  }
+
+  // Permet de valider avec la touche Entrée
+  function handleKeydown(e: KeyboardEvent) {
+    if (e.key === "Enter") {
+      (e.target as HTMLInputElement).blur(); // Enlève le focus pour déclencher le changement
+    }
+  }
 </script>
 
 <div class="flex flex-col h-full">
-  <div class="flex-none p-2 border-b border-stone-800 bg-stone-900 z-10">
-    <div class="flex justify-between items-end">
-      <h2 class="text-sm font-bold text-stone-200 truncate pr-4">
-        {guide.name}
-      </h2>
-      <span class="text-xs text-stone-500 font-mono flex-shrink-0">
-        Étape {stepIndex + 1} / {guide.steps.length}
-      </span>
+  <div
+    class="flex-none pt-2 pb-0 border-b border-stone-800 bg-stone-900 z-10 flex flex-col gap-2"
+  >
+    <div class="flex justify-between pl-2 items-end px-1">
+      <div
+        class="text-xs text-stone-500 font-mono flex-shrink-0 flex items-center"
+      >
+        <span>Étape</span>
+
+        <input
+          type="text"
+          class="bg-transparent border-none p-0 mx-1 w-[3ch] text-center text-stone-500 font-mono focus:text-stone-200 focus:outline-none focus:bg-stone-800/50 rounded transition-colors cursor-text hover:text-stone-300"
+          value={stepIndex + 1}
+          onchange={handleStepInput}
+          onkeydown={handleKeydown}
+        />
+
+        <span>/ {guide.steps.length}</span>
+      </div>
+    </div>
+
+    <div class="w-full h-[2px] bg-stone-800 rounded-full overflow-hidden">
+      <div
+        class="h-full bg-green-400 transition-all duration-300 ease-out shadow-[0_0_10px_rgba(234,88,12,0.5)]"
+        style="width: {progressPercentage}%"
+      ></div>
     </div>
   </div>
 
@@ -34,13 +79,13 @@
   </div>
 
   <div
-    class="flex-none p-4 border-t border-stone-800 bg-stone-900 flex justify-between items-center gap-4"
+    class="flex-none p-2 border-t border-stone-800 bg-stone-900 flex justify-between items-center gap-4"
   >
     <Button
       variant="secondary"
       onclick={onPrev}
       disabled={stepIndex === 0}
-      class="w-32"
+      class="w-28  select-none"
     >
       <ChevronLeft class="w-4 h-4 mr-1" /> Précédent
     </Button>
@@ -49,7 +94,7 @@
       variant="default"
       onclick={onNext}
       disabled={stepIndex === guide.steps.length - 1}
-      class="w-32 bg-orange-700 hover:bg-orange-600"
+      class="w-28 bg-orange-700 hover:bg-orange-600 select-none"
     >
       Suivant <ChevronRight class="w-4 h-4 ml-1" />
     </Button>
@@ -124,9 +169,10 @@
   }
   .guide-content :global(.tag-item img),
   .guide-content :global(.tag-quest img),
+  .guide-content :global(.tag-dungeon img),
   .guide-content :global(.tag-monster img) {
-    width: 20px;
-    height: 20px;
+    width: 24px;
+    height: 24px;
     object-fit: contain;
     border-radius: 0;
   }
@@ -187,6 +233,35 @@
     position: relative;
     border-radius: 4px;
   }
+
+  .guide-content :global([data-type="guide-step"]) {
+    color: #b19cd9; /* Violet clair (Couleur historique Dofus pour les étapes) */
+    font-weight: 700;
+    display: inline; /* S'assure qu'il reste dans le flux du texte */
+  }
+
+  .guide-content :global([data-type="guide-step"] img) {
+    width: 20px;
+    height: 20px;
+    object-fit: contain;
+    vertical-align: middle;
+    margin-right: 4px;
+  }
+
+  .guide-content :global([data-type="guide-step"]:hover) {
+    cursor: pointer;
+  }
+
+  .guide-content :global(.tag-dungeon) {
+    color: #34d399; /* Vert clair */
+    font-weight: 600;
+    margin-right: 8px;
+  }
+
+  .guide-content :global(.tag-dungeon:hover) {
+    cursor: pointer;
+  }
+
   .guide-content :global([data-tooltip]:hover::after) {
     content: attr(data-tooltip);
     position: absolute;
