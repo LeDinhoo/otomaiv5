@@ -18,7 +18,8 @@
         "width": 400,
         "height": 900,
         "shadow": false,
-        "transparent": true
+        "transparent": true,
+        "alwaysOnTop": true
       }
     ],
     "security": {
