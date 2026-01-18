@@ -1,9 +1,8 @@
 <script lang="ts">
   import { Button } from "$lib/components/ui/button/index.js";
-  import { ChevronLeft, ChevronRight } from "@lucide/svelte";
+  import { ChevronLeft, ChevronRight, MapPin } from "@lucide/svelte";
 
   // Props
-  // On utilise $bindable() pour stepIndex afin de pouvoir le modifier depuis l'input
   let { guide, stepIndex = $bindable(0), onPrev, onNext } = $props();
 
   // Variables dérivées
@@ -19,33 +18,52 @@
     const input = e.target as HTMLInputElement;
     const val = parseInt(input.value);
 
-    // Validation : Est-ce un nombre valide dans les bornes du guide ?
     if (!isNaN(val) && val >= 1 && val <= guide.steps.length) {
-      stepIndex = val - 1; // On met à jour (index 0)
+      stepIndex = val - 1;
     } else {
-      // Si invalide, on remet la valeur actuelle
       input.value = (stepIndex + 1).toString();
     }
   }
 
-  // Permet de valider avec la touche Entrée
+  // FONCTION MAGIQUE : Détecte [x,y] ou [x, y] et ajoute une classe
+  let formattedText = $derived.by(() => {
+    if (!currentStep?.web_text) return "";
+
+    // Regex qui cherche : [ suivi de chiffres (positifs ou négatifs), virgule, chiffres ]
+    const posRegex = /\[(-?\d+)\s*,\s*(-?\d+)\]/g;
+
+    return currentStep.web_text.replace(posRegex, (match) => {
+      return `<span class="inline-pos">${match}</span>`;
+    });
+  });
+
   function handleKeydown(e: KeyboardEvent) {
     if (e.key === "Enter") {
-      (e.target as HTMLInputElement).blur(); // Enlève le focus pour déclencher le changement
+      (e.target as HTMLInputElement).blur();
     }
   }
 </script>
 
 <div class="flex flex-col h-full">
   <div
-    class="flex-none pt-2 pb-0 border-b border-stone-800 bg-stone-900 z-10 flex flex-col gap-2"
+    class="flex-none pt-2 pb-0 border-b border-stone-800 bg-stone-900 z-10 flex flex-col gap-2 select-none"
   >
-    <div class="flex justify-between pl-2 items-end px-1">
+    <div class="flex justify-between items-end px-1">
       <div
-        class="text-xs text-stone-500 font-mono flex-shrink-0 flex items-center"
+        class="flex items-center gap-1.5 text-orange-500/80 hover:text-orange-500 hover:cursor-pointer font-mono text-xs px-2 py-0.5 rounded"
+      >
+        <MapPin class="w-3 h-3 " />
+        {#if currentStep && (currentStep.pos_x !== 0 || currentStep.pos_y !== 0)}
+          [{currentStep.pos_x}, {currentStep.pos_y}]
+        {:else}
+          [---, ---]
+        {/if}
+      </div>
+
+      <div
+        class="text-xs text-stone-500 font-mono pr-2 shrink-0 flex items-center"
       >
         <span>Étape</span>
-
         <input
           type="text"
           class="bg-transparent border-none p-0 mx-1 w-[3ch] text-center text-stone-500 font-mono focus:text-stone-200 focus:outline-none focus:bg-stone-800/50 rounded transition-colors cursor-text hover:text-stone-300"
@@ -53,12 +71,13 @@
           onchange={handleStepInput}
           onkeydown={handleKeydown}
         />
-
         <span>/ {guide.steps.length}</span>
       </div>
     </div>
 
-    <div class="w-full h-[2px] bg-stone-800 rounded-full overflow-hidden">
+    <div
+      class="w-full h-[2px] bg-stone-800 rounded-full overflow-hidden mb-[-1px]"
+    >
       <div
         class="h-full bg-green-400 transition-all duration-300 ease-out shadow-[0_0_10px_rgba(234,88,12,0.5)]"
         style="width: {progressPercentage}%"
@@ -71,7 +90,7 @@
   >
     {#if currentStep}
       <div class="text-stone-300">
-        {@html currentStep.web_text}
+        {@html formattedText}
       </div>
     {:else}
       <p class="text-red-500">Erreur: Étape introuvable.</p>
@@ -79,13 +98,13 @@
   </div>
 
   <div
-    class="flex-none p-2 border-t border-stone-800 bg-stone-900 flex justify-between items-center gap-4"
+    class="flex-none p-2 border-t border-stone-800 bg-stone-900 flex justify-between items-center gap-4 select-none"
   >
     <Button
       variant="secondary"
       onclick={onPrev}
       disabled={stepIndex === 0}
-      class="w-28  select-none"
+      class="w-28 select-none"
     >
       <ChevronLeft class="w-4 h-4 mr-1" /> Précédent
     </Button>
@@ -277,5 +296,12 @@
     z-index: 50;
     border-radius: 0;
     margin-bottom: 5px;
+  }
+
+  .guide-content :global(.inline-pos) {
+    color: #f97316; /* orange-500 */
+    font-weight: 700;
+    cursor: pointer;
+    padding: 0 2px;
   }
 </style>
