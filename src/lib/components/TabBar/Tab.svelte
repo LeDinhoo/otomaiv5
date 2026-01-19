@@ -22,7 +22,7 @@
   onkeydown={handleKeyDown}
   class="group flex-1 flex items-center justify-between px-2 h-full text-sm font-medium transition-all relative border-r border-stone-800/50 outline-none min-w-0
          {active
-    ? 'text-stone-100 bg-stone-700/50'
+    ? 'text-[#d4b07b] bg-stone-700/50'
     : 'text-stone-400 hover:text-stone-200 hover:bg-stone-800'}"
 >
   <span class="truncate select-none">{label}</span>
@@ -37,6 +37,6 @@
   </button>
 
   {#if active}
-    <div class="absolute bottom-0 left-0 right-0 h-0.5 bg-orange-500"></div>
+    <div class="absolute bottom-0 left-0 right-0 h-0.5 bg-[#d4b07b]"></div>
   {/if}
 </div>

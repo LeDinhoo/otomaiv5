@@ -101,8 +101,8 @@
         <span>/ {guide.steps.length}</span>
       </div>
     </div>
-    <div class="w-full h-[2px] bg-stone-800 rounded-full overflow-hidden mb-[-1px]">
-      <div class="h-full bg-green-400 transition-all duration-300 ease-out shadow-[0_0_10px_rgba(234,88,12,0.5)]" style="width: {progressPercentage}%"></div>
+    <div class="w-full h-[2px] bg-stone-800 overflow-hidden mb-[-1px]">
+      <div class="h-full bg-[#d4b07b] transition-all duration-300 ease-out shadow-[0_0_10px_rgba(234,88,12,0.5)]" style="width: {progressPercentage}%"></div>
     </div>
   </div>
 
@@ -124,10 +124,10 @@
   </div>
 
   <div class="flex-none p-2 border-t border-stone-800 bg-stone-900 flex justify-between items-center gap-4 select-none">
-    <Button variant="secondary" onclick={onPrev} disabled={stepIndex === 0} class="w-28 select-none">
+    <Button variant="secondary" onclick={onPrev} disabled={stepIndex === 0} class="w-28 select-none text-stone-300 bg-[#615d59] hover:bg-[#968d84]">
       <ChevronLeft class="w-4 h-4 mr-1" /> Précédent
     </Button>
-    <Button variant="default" onclick={onNext} disabled={stepIndex === guide.steps.length - 1} class="w-28 bg-orange-700 hover:bg-orange-600 select-none">
+    <Button variant="default" onclick={onNext} disabled={stepIndex === guide.steps.length - 1} class="w-28 bg-[#a4713e] hover:bg-[#b8976f] select-none">
       Suivant <ChevronRight class="w-4 h-4 ml-1" />
     </Button>
   </div>
