@@ -7,6 +7,9 @@ use mouse_manager::MouseManager;
 mod methods;
 mod window_finder;
 
+use std::sync::{Arc, Mutex};
+use methods::key_listener::{self, SharedKeyListenerState, KeyListenerState};
+
 #[tauri::command]
 fn greet(name: &str) -> String {
     format!("Hello, {}! You've been greeted from Rust!", name)
@@ -63,10 +66,23 @@ fn use_potion_brakmar(window_title: String) -> Result<String, String> {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // État initial : désactivé, pas de touche cible
+    let listener_state: SharedKeyListenerState = Arc::new(Mutex::new(KeyListenerState {
+        active: false,
+        target_keys: vec![], 
+    }));
+
     tauri::Builder::default()
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_http::init())
         .plugin(tauri_plugin_opener::init())
+        // 1. On enregistre l'état
+        .manage(listener_state) 
+        // 2. On lance le listener au setup
+        .setup(|app| {
+            key_listener::init_background_listener(app.handle());
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             greet,
             focus_window,
@@ -76,7 +92,9 @@ pub fn run() {
             quick_type,
             travel_with_zaap,
             use_potion_bonta,
-            use_potion_brakmar
+            use_potion_brakmar,
+            // 3. Ajouter la nouvelle commande ici
+            methods::key_listener::set_key_listener 
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

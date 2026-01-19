@@ -30,7 +30,7 @@
   <button
     type="button"
     onclick={handleClose}
-    class=" p-0.5 rounded-full hover:bg-stone-500/30 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
+    class=" p-0.5 rounded-full hover:bg-stone-500/30 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
     title="Fermer l'onglet"
   >
     <X class="w-3.5 h-3.5" />

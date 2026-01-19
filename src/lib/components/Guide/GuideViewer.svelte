@@ -1,6 +1,67 @@
 <script lang="ts">
-  import { Button } from "$lib/components/ui/button/index.js";
-  import { ChevronLeft, ChevronRight, MapPin } from "@lucide/svelte";
+  import { Button } from "$lib/components/ui/button/";
+  import {
+    ChevronLeft,
+    ChevronRight,
+    MapPin,
+    Keyboard,
+    Route,
+    Waypoints,
+  } from "@lucide/svelte";
+  import { invoke } from "@tauri-apps/api/core";
+  import { listen } from "@tauri-apps/api/event";
+  import { onDestroy, onMount } from "svelte"; // On ajoute onMount
+
+  let listenKeys = $state(true);
+  // Variable pour stocker la fonction de nettoyage
+  let unlistenHandle: (() => void) | undefined;
+
+  onMount(async () => {
+    // 1. On active l'écoute côté Rust
+    await invoke("set_key_listener", {
+      active: true,
+      keys: ["a", "d"],
+    });
+
+    // 2. Sécurité : On s'assure qu'on n'écoute pas déjà avant de créer l'écouteur
+    if (!unlistenHandle) {
+      unlistenHandle = await listen("key-detected", (event) => {
+        if (!listenKeys) return; // Si désactivé visuellement, on ignore
+
+        // On vérifie le payload
+        const key = event.payload as string;
+        if (key === "a") {
+          onPrev();
+        } else if (key === "d") {
+          onNext();
+        }
+      });
+    }
+  });
+
+  onDestroy(() => {
+    // 1. On désactive côté Rust
+    invoke("set_key_listener", {
+      active: false,
+      keys: [],
+    });
+
+    // 2. IMPORTANT : On supprime l'écouteur JS pour éviter les doublons
+    if (unlistenHandle) {
+      unlistenHandle();
+      unlistenHandle = undefined;
+    }
+  });
+
+  function handleListenKeysChange() {
+    listenKeys = !listenKeys;
+    // On met simplement à jour l'état côté Rust
+    // L'écouteur JS reste actif mais est bloqué par la condition `if (!listenKeys)`
+    invoke("set_key_listener", {
+      active: listenKeys,
+      keys: listenKeys ? ["a", "d"] : [],
+    });
+  }
 
   // Props
   let {
@@ -162,6 +223,34 @@
     >
       <ChevronLeft class="w-4 h-4 mr-1" /> Précédent
     </Button>
+    <div class="flex items-center overflow-hidden rounded-sm h-full">
+      <Button
+        variant="secondary"
+        onclick={handleListenKeysChange}
+        class="{listenKeys
+          ? ' bg-[#a09890b9] hover:bg-[#d1c4b7b2] '
+          : 'bg-[#615d59] hover:bg-[#968d84]'} size-9 cursor-pointer rounded-none h-full flex items-center justify-center select-none"
+      >
+        <Waypoints
+          class="size-5 drop-shadow-4xl {listenKeys
+            ? 'text-[#f7c882]'
+            : 'text-stone-300'}"
+        />
+      </Button>
+      <Button
+        variant="secondary"
+        onclick={handleListenKeysChange}
+        class="{listenKeys
+          ? ' bg-[#a09890b9] hover:bg-[#d1c4b7b2] '
+          : 'bg-[#615d59] hover:bg-[#968d84]'} size-9 cursor-pointer rounded-none h-full flex items-center justify-center select-none"
+      >
+        <Keyboard
+          class="size-5 drop-shadow-4xl {listenKeys
+            ? 'text-[#f7c882]'
+            : 'text-stone-300'}"
+        />
+      </Button>
+    </div>
     <Button
       variant="default"
       onclick={onNext}
