@@ -16,6 +16,11 @@
   // Variable pour stocker la fonction de nettoyage
   let unlistenHandle: (() => void) | undefined;
 
+  let tooltip = $state({
+    visible: false,
+    text: "",
+  });
+
   onMount(async () => {
     // 1. On active l'écoute côté Rust
     await invoke("set_key_listener", {
@@ -133,6 +138,30 @@
         checkboxState = { ...checkboxState };
       };
     });
+
+    const questBlocks = contentDiv.querySelectorAll(
+      '[data-type="quest-block"][title]',
+    );
+
+    questBlocks.forEach((el) => {
+      const titleText = el.getAttribute("title");
+
+      if (titleText) {
+        // 1. Sauvegarde et nettoyage
+        el.setAttribute("data-tooltip-text", titleText);
+        el.removeAttribute("title");
+
+        // 2. Écouteurs simples
+        el.addEventListener("mouseenter", () => {
+          tooltip.text = titleText;
+          tooltip.visible = true;
+        });
+
+        el.addEventListener("mouseleave", () => {
+          tooltip.visible = false;
+        });
+      }
+    });
   });
 
   // --- Fonctions utilitaires (Texte, Input, etc.) ---
@@ -206,6 +235,21 @@
     {#if currentStep}
       <div class="text-stone-300">
         {@html formattedText}
+        {#if tooltip.visible}
+          <div class="fixed-guide-tooltip">
+            <img
+              src="https://ganymede-dofus.com/images/icon_quest.png"
+              alt="quest"
+              class="w-7"
+            />
+            <div class="tooltip-body">{tooltip.text}</div>
+          </div>
+        {/if}
+
+        <div
+          bind:this={contentDiv}
+          class="flex-1 overflow-y-auto p-4 custom-scrollbar guide-content text-left cursor-auto"
+        ></div>
       </div>
     {:else}
       <p class="text-red-500">Erreur: Étape introuvable.</p>
@@ -275,13 +319,14 @@
   }
 
   .guide-content {
+    font-family: sans-serif;
     font-size: 1.05rem;
-    line-height: 1.6;
+    font-weight: 100;
     color: #e7e5e4;
   }
 
   .guide-content :global(p) {
-    margin-bottom: 0.8rem;
+    margin-bottom: 1rem;
     display: block;
   }
 
@@ -295,6 +340,24 @@
     max-width: 100%;
     height: auto;
     border-radius: 10px;
+  }
+
+  .guide-content :global([data-type="quest-block"]) {
+    border: 1px solid #4444447a;
+    background: rgba(0, 0, 0, 0.2);
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 16px;
+    gap: 8px;
+    margin: 1rem 0;
+    border-radius: 10px;
+  }
+
+  .guide-content :global([data-type="quest-block"]):hover {
+    background: rgba(0, 0, 0, 0.3);
+    cursor: pointer;
   }
 
   .guide-content :global(.tag-item),
@@ -341,6 +404,20 @@
     height: 24px;
     object-fit: contain;
     border-radius: 0;
+  }
+
+  .guide-content :global(.tag-monster img) {
+    width: 32px;
+    height: 32px;
+    object-fit: contain;
+    border-radius: 8px;
+  }
+
+  .guide-content :global(.title) {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin: 1rem 0 0.5rem 0;
+    color: #fbbf24;
   }
 
   .guide-content :global(ul[data-type="taskList"]) {
@@ -391,13 +468,13 @@
   }
 
   .guide-content :global(span[style*="rgb(250, 0, 0)"]) {
-    color: #f87171 !important;
+    color: #ff3131 !important;
     font-weight: 600;
   }
 
   .guide-content :global(.img-large) {
     display: block;
-    margin: 1.5rem auto;
+    margin: 1.5rem 0;
     max-width: 100%;
     box-shadow: none;
     border-radius: 8px;
@@ -405,15 +482,13 @@
 
   .guide-content :global([data-tooltip]) {
     cursor: help;
-    border-bottom: 1px dotted #a8a29e;
     position: relative;
-    border-radius: 4px;
   }
 
   .guide-content :global([data-type="guide-step"]) {
-    color: #b19cd9; /* Violet clair (Couleur historique Dofus pour les étapes) */
+    color: #b19cd9;
     font-weight: 700;
-    display: inline; /* S'assure qu'il reste dans le flux du texte */
+    display: inline;
   }
 
   .guide-content :global([data-type="guide-step"] img) {
@@ -429,7 +504,7 @@
   }
 
   .guide-content :global(.tag-dungeon) {
-    color: #34d399; /* Vert clair */
+    color: #34d399;
     font-weight: 600;
     margin-right: 8px;
   }
@@ -456,9 +531,69 @@
   }
 
   .guide-content :global(.inline-pos) {
-    color: #f97316; /* orange-500 */
+    color: #f97316;
     font-weight: 700;
     cursor: pointer;
     padding: 0 2px;
+  }
+
+  /* Style spécifique pour les quest-blocks convertis */
+  .guide-content :global([data-type="quest-block"][data-tooltip]) {
+    position: relative; /* Nécessaire pour positionner l'infobulle par rapport au bloc */
+  }
+
+  /* Style de l'infobulle flottante */
+  /* Configuration du tooltip fixe */
+  .fixed-guide-tooltip {
+    position: absolute;
+    top: 50px;
+    right: 30px;
+    z-index: 50;
+
+    background-color: #1c1917; /* stone-900 */
+    border: 1px solid #cecece21; /* Bordure rose quête */
+    border-radius: 8px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.6);
+    display: flex;
+
+    flex-direction: row;
+    align-items: center;
+
+    /* Animation d'entrée douce */
+    animation: slideIn 0.2s ease-out;
+    pointer-events: none; /* Important : permet de cliquer "au travers" si besoin */
+  }
+
+  .fixed-guide-tooltip img {
+    height: 20px;
+    width: 18px;
+    margin-left: 12px;
+  }
+
+  .tooltip-body {
+    padding: 6px;
+    margin-right: 8px;
+    color: #e7e5e4;
+    font-size: 0.9rem;
+    line-height: 1.4;
+    white-space: pre-wrap;
+    color: #f472b6;
+    font-weight: 600;
+  }
+
+  @keyframes slideIn {
+    from {
+      opacity: 0;
+      transform: translateX(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+
+  /* RAPPEL : Correction pour enlever la ligne blanche pointillée par défaut */
+  .guide-content :global([data-type="quest-block"]) {
+    border-bottom: 1px solid #4444447a !important;
   }
 </style>
