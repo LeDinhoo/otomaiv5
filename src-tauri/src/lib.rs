@@ -9,10 +9,30 @@ mod window_finder;
 
 use std::sync::{Arc, Mutex};
 use methods::key_listener::{self, SharedKeyListenerState, KeyListenerState};
+use methods::guide_parser::{GuideParser, GuideResult};
+
+// --- GESTION DE L'ÉTAT (TITRE FENÊTRE) ---
+pub struct ActiveSession {
+    pub window_title: Mutex<Option<String>>,
+}
+
+// --- COMMANDES TAURI ---
 
 #[tauri::command]
 fn greet(name: &str) -> String {
     format!("Hello, {}! You've been greeted from Rust!", name)
+}
+
+#[tauri::command]
+async fn sync_window_title(character_name: String, state: tauri::State<'_, ActiveSession>) -> Result<String, String> {
+    if let Some(full_title) = window_finder::find_specific_game_window(&character_name) {
+        let mut title_storage = state.window_title.lock().unwrap();
+        *title_storage = Some(full_title.clone());
+        println!("✅ Fenêtre trouvée et synchronisée : {}", full_title);
+        Ok(full_title)
+    } else {
+        Err(format!("Impossible de trouver une fenêtre pour {}", character_name))
+    }
 }
 
 #[tauri::command]
@@ -37,9 +57,10 @@ fn get_game_title_by_name(character_name: String) -> Result<String, String> {
     })
 }
 
+// NOTE : Accepte maintenant le délai optionnel
 #[tauri::command]
-fn press_key(key: String, count: u32) -> Result<String, String> {
-    methods::press_key::press_key_multiple_times(&key, count)
+fn press_key(key: String, count: u32, delay: Option<u64>) -> Result<String, String> {
+    methods::press_key::press_key_multiple_times(&key, count, delay)
 }
 
 #[tauri::command]
@@ -64,9 +85,38 @@ fn use_potion_brakmar(window_title: String) -> Result<String, String> {
     methods::potions::potion_brakmar(&window_title)
 }
 
+#[tauri::command]
+fn parse_guide_step(html_content: String) -> GuideResult {
+    GuideParser::parse_step(&html_content)
+}
+
+#[tauri::command]
+async fn execute_guide_step(
+    step: GuideResult, 
+    state: tauri::State<'_, ActiveSession>
+) -> Result<String, String> {
+    // Récupération sécurisée du titre depuis la mémoire
+    let window_title = {
+        let title_lock = state.window_title.lock().unwrap();
+        title_lock.clone().ok_or("Aucune fenêtre synchronisée. Lancez la recherche d'abord.")?
+    };
+
+    // Exécution dans un thread séparé
+    let result = std::thread::spawn(move || {
+        methods::automations::execute_step_automation(&step, &window_title)
+    }).join();
+
+    match result {
+        Ok(res) => res,
+        Err(_) => Err("Crash critique du thread d'automatisation.".to_string()),
+    }
+}
+
+// --- MAIN RUN ---
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    // État initial : désactivé, pas de touche cible
+    // État initial Listener
     let listener_state: SharedKeyListenerState = Arc::new(Mutex::new(KeyListenerState {
         active: false,
         target_keys: vec![], 
@@ -76,13 +126,18 @@ pub fn run() {
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_http::init())
         .plugin(tauri_plugin_opener::init())
-        // 1. On enregistre l'état
+        
+        // 1. Enregistrement des États
         .manage(listener_state) 
-        // 2. On lance le listener au setup
+        .manage(ActiveSession { window_title: Mutex::new(None) }) 
+
+        // 2. Setup Listener
         .setup(|app| {
             key_listener::init_background_listener(app.handle());
             Ok(())
         })
+        
+        // 3. Enregistrement des Commandes
         .invoke_handler(tauri::generate_handler![
             greet,
             focus_window,
@@ -93,7 +148,9 @@ pub fn run() {
             travel_with_zaap,
             use_potion_bonta,
             use_potion_brakmar,
-            // 3. Ajouter la nouvelle commande ici
+            sync_window_title,
+            parse_guide_step,
+            execute_guide_step,
             methods::key_listener::set_key_listener 
         ])
         .run(tauri::generate_context!())

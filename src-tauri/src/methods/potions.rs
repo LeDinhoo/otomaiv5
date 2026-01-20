@@ -1,33 +1,25 @@
 use crate::methods::press_key;
 use crate::window_manager::WindowManager;
-use std::thread;
-use std::time::Duration;
+use std::{thread, time::Duration};
 
 pub fn potion_bonta(window_title: &str) -> Result<String, String> {
-    // 1. Focus de la fenêtre
     let win_manager = WindowManager::new();
     win_manager.focus_by_title(window_title)?;
+    thread::sleep(Duration::from_millis(200));
 
-    // Petite pause après le focus
-    thread::sleep(Duration::from_millis(100));
-
-    // 2. Appui sur la touche '-' deux fois
-    // On utilise votre méthode native qui est la plus fiable
-    press_key::press_key_multiple_times("-", 2)?;
-
-    Ok("Potion de cité Bonta utilisée (touche - x2)".to_string())
+    // Slot 1 + Argument None
+    press_key::press_key_multiple_times("1", 1, None)?; 
+    thread::sleep(Duration::from_secs(4));
+    Ok("Potion Bonta utilisée".to_string())
 }
 
 pub fn potion_brakmar(window_title: &str) -> Result<String, String> {
-    // 1. Focus de la fenêtre
     let win_manager = WindowManager::new();
     win_manager.focus_by_title(window_title)?;
+    thread::sleep(Duration::from_millis(200));
 
-    // Petite pause après le focus
-    thread::sleep(Duration::from_millis(100));
-
-    // 2. Appui sur la touche '=' deux fois
-    press_key::press_key_multiple_times("=", 2)?;
-
-    Ok("Potion de cité Brakmar utilisée (touche = x2)".to_string())
+    // Slot 2 + Argument None
+    press_key::press_key_multiple_times("2", 1, None)?;
+    thread::sleep(Duration::from_secs(4));
+    Ok("Potion Brakmar utilisée".to_string())
 }

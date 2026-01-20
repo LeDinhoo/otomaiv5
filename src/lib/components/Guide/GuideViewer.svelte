@@ -5,77 +5,20 @@
     ChevronRight,
     MapPin,
     Keyboard,
-    Route,
     Waypoints,
   } from "@lucide/svelte";
   import { invoke } from "@tauri-apps/api/core";
   import { listen } from "@tauri-apps/api/event";
-  import { onDestroy, onMount } from "svelte"; // On ajoute onMount
+  import { onDestroy, onMount } from "svelte";
 
-  let listenKeys = $state(true);
-  // Variable pour stocker la fonction de nettoyage
-  let unlistenHandle: (() => void) | undefined;
-
-  let tooltip = $state({
-    visible: false,
-    text: "",
-  });
-
-  onMount(async () => {
-    // 1. On active l'écoute côté Rust
-    await invoke("set_key_listener", {
-      active: true,
-      keys: ["a", "d"],
-    });
-
-    // 2. Sécurité : On s'assure qu'on n'écoute pas déjà avant de créer l'écouteur
-    if (!unlistenHandle) {
-      unlistenHandle = await listen("key-detected", (event) => {
-        if (!listenKeys) return; // Si désactivé visuellement, on ignore
-
-        // On vérifie le payload
-        const key = event.payload as string;
-        if (key === "a") {
-          onPrev();
-        } else if (key === "d") {
-          onNext();
-        }
-      });
-    }
-  });
-
-  onDestroy(() => {
-    // 1. On désactive côté Rust
-    invoke("set_key_listener", {
-      active: false,
-      keys: [],
-    });
-
-    // 2. IMPORTANT : On supprime l'écouteur JS pour éviter les doublons
-    if (unlistenHandle) {
-      unlistenHandle();
-      unlistenHandle = undefined;
-    }
-  });
-
-  function handleListenKeysChange() {
-    listenKeys = !listenKeys;
-    // On met simplement à jour l'état côté Rust
-    // L'écouteur JS reste actif mais est bloqué par la condition `if (!listenKeys)`
-    invoke("set_key_listener", {
-      active: listenKeys,
-      keys: listenKeys ? ["a", "d"] : [],
-    });
-  }
-
-  // Props
   let {
     guide,
     stepIndex = $bindable(0),
     checkboxState = $bindable({}),
     onPrev,
     onNext,
-    // NOUVEAU : Callback pour demander au parent de changer de guide
+    // On récupère le titre synchronisé pour l'Auto-Pilot
+    usableTitle = $bindable(""),
     onNavigate,
   } = $props();
 
@@ -86,48 +29,119 @@
 
   let contentDiv: HTMLElement;
 
-  // --- GESTION DES CLICS (NAVIGATION) ---
+  // --- ÉTATS ---
+  let listenKeys = $state(true);
+  let autoPilot = $state(false); // État de l'Auto-Pilot
+  let unlistenHandle: (() => void) | undefined;
+
+  // État pour les info-bulles de quêtes
+  let tooltip = $state({
+    visible: false,
+    text: "",
+  });
+
+  // Stockage de l'analyse Rust pour exécution
+  let currentAnalysis = $state(null);
+
+  // --- 1. LOGIQUE AUTO-PILOT (RUST) ---
+
+  // Analyse l'étape au chargement (sans bouger)
+  async function analyzeStep(html: string) {
+    try {
+      const result = await invoke("parse_guide_step", { htmlContent: html });
+      currentAnalysis = result;
+    } catch (err) {
+      console.error("Erreur parsing :", err);
+      currentAnalysis = null;
+    }
+  }
+
+  // Action au clic sur "Suivant" (ou touche D)
+  async function handleNextAction() {
+    // Si Auto-Pilot est ON, on exécute le voyage
+    if (autoPilot && currentAnalysis) {
+      console.log(`🚀 Auto-Pilot : Exécution...`);
+      invoke("execute_guide_step", {
+        step: currentAnalysis,
+        windowTitle: usableTitle || "Dofus", // Sécurité
+      }).catch((e) => console.error("Erreur Auto-Pilot:", e));
+    }
+    // On passe à la suite
+    onNext();
+  }
+
+  // Surveille le changement d'étape pour lancer l'analyse
+  $effect(() => {
+    if (currentStep && currentStep.web_text) {
+      analyzeStep(currentStep.web_text);
+    }
+  });
+
+  // --- 2. GESTION CLAVIER (Ta version améliorée) ---
+
+  onMount(async () => {
+    // 1. On active l'écoute côté Rust
+    await invoke("set_key_listener", { active: true, keys: ["a", "d"] });
+
+    // 2. Sécurité : On s'assure qu'on n'écoute pas déjà
+    if (!unlistenHandle) {
+      unlistenHandle = await listen("key-detected", (event) => {
+        if (!listenKeys) return;
+
+        const key = event.payload as string;
+        if (key === "a") {
+          onPrev();
+        } else if (key === "d") {
+          handleNextAction(); // <-- MODIFIÉ : Appelle la logique Auto-Pilot
+        }
+      });
+    }
+  });
+
+  onDestroy(() => {
+    invoke("set_key_listener", { active: false, keys: [] });
+    if (unlistenHandle) {
+      unlistenHandle();
+      unlistenHandle = undefined;
+    }
+  });
+
+  function handleListenKeysChange() {
+    listenKeys = !listenKeys;
+    invoke("set_key_listener", {
+      active: listenKeys,
+      keys: listenKeys ? ["a", "d"] : [],
+    });
+  }
+
+  // --- 3. LOGIQUE UI (Checkboxes, Tooltips, Navigation) ---
+
+  // Gestion des clics sur les liens (Navigation inter-guides)
   function handleContentClick(event: MouseEvent) {
     const target = event.target as HTMLElement;
-
-    // On cherche si l'élément cliqué (ou son parent) est un lien d'étape
-    // On supporte ta classe .guide-step ET l'attribut data-type="guide-step"
     const stepLink = target.closest('[data-type="guide-step"], .guide-step');
 
     if (stepLink) {
-      event.preventDefault(); // On empêche le comportement par défaut si c'était un lien
-
+      event.preventDefault();
       const targetGuideId = stepLink.getAttribute("guideid");
       const targetStepNum = parseInt(
         stepLink.getAttribute("stepnumber") || "1",
       );
-
-      // Calcul de l'index (Step 1 = Index 0)
       const targetIndex = Math.max(0, targetStepNum - 1);
 
-      // CAS 1 : C'est le guide actuel (ID "0" ou ID identique)
-      // (Note: on compare en string car les attributs HTML sont des strings)
       if (targetGuideId === "0" || targetGuideId == guide.id) {
-        console.log("Navigation locale vers étape", targetIndex);
         stepIndex = targetIndex;
-      }
-      // CAS 2 : C'est un autre guide -> On prévient le parent
-      else if (onNavigate) {
-        console.log(
-          "Navigation externe vers guide",
-          targetGuideId,
-          "étape",
-          targetIndex,
-        );
+      } else if (onNavigate) {
         onNavigate(targetGuideId, targetIndex);
       }
     }
   }
 
-  // --- GESTION DES CHECKBOXES ---
+  // Effet combiné : Checkboxes + Tooltips Quêtes
   $effect(() => {
     if (!contentDiv) return;
 
+    // A. Checkboxes
     const inputs = contentDiv.querySelectorAll('input[type="checkbox"]');
     if (!checkboxState[stepIndex]) checkboxState[stepIndex] = [];
 
@@ -139,24 +153,19 @@
       };
     });
 
+    // B. Tooltips Quêtes (Ta logique)
     const questBlocks = contentDiv.querySelectorAll(
       '[data-type="quest-block"][title]',
     );
-
     questBlocks.forEach((el) => {
       const titleText = el.getAttribute("title");
-
       if (titleText) {
-        // 1. Sauvegarde et nettoyage
         el.setAttribute("data-tooltip-text", titleText);
         el.removeAttribute("title");
-
-        // 2. Écouteurs simples
         el.addEventListener("mouseenter", () => {
           tooltip.text = titleText;
           tooltip.visible = true;
         });
-
         el.addEventListener("mouseleave", () => {
           tooltip.visible = false;
         });
@@ -164,7 +173,7 @@
     });
   });
 
-  // --- Fonctions utilitaires (Texte, Input, etc.) ---
+  // --- UTILS ---
   function handleStepInput(e: Event) {
     const input = e.target as HTMLInputElement;
     const val = parseInt(input.value);
@@ -230,26 +239,25 @@
     role="button"
     tabindex="0"
     onkeydown={() => {}}
-    class="flex-1 overflow-y-auto p-4 custom-scrollbar guide-content bg-stone-950/30 text-left cursor-auto"
+    class="flex-1 overflow-y-auto p-4 custom-scrollbar guide-content bg-stone-950/30 text-left cursor-auto relative"
   >
     {#if currentStep}
       <div class="text-stone-300">
         {@html formattedText}
+
         {#if tooltip.visible}
-          <div class="fixed-guide-tooltip">
+          <div
+            class="fixed-guide-tooltip"
+          >
             <img
               src="https://ganymede-dofus.com/images/icon_quest.png"
               alt="quest"
-              class="w-7"
             />
-            <div class="tooltip-body">{tooltip.text}</div>
+            <div class="tooltip-body">
+              {tooltip.text}
+            </div>
           </div>
         {/if}
-
-        <div
-          bind:this={contentDiv}
-          class="flex-1 overflow-y-auto p-4 custom-scrollbar guide-content text-left cursor-auto"
-        ></div>
       </div>
     {:else}
       <p class="text-red-500">Erreur: Étape introuvable.</p>
@@ -267,23 +275,27 @@
     >
       <ChevronLeft class="w-4 h-4 mr-1" /> Précédent
     </Button>
-    <div class="flex items-center overflow-hidden rounded-sm h-full">
+
+    <div class="flex items-center overflow-hidden rounded-sm h-full gap-1">
       <Button
         variant="secondary"
-        onclick={handleListenKeysChange}
-        class="{listenKeys
+        onclick={() => (autoPilot = !autoPilot)}
+        title="Activer l'Auto-Pilot"
+        class="{autoPilot
           ? ' bg-[#a09890b9] hover:bg-[#d1c4b7b2] '
           : 'bg-[#615d59] hover:bg-[#968d84]'} size-9 cursor-pointer rounded-none h-full flex items-center justify-center select-none"
       >
         <Waypoints
-          class="size-5 drop-shadow-4xl {listenKeys
+          class="size-5 drop-shadow-4xl {autoPilot
             ? 'text-[#f7c882]'
             : 'text-stone-300'}"
         />
       </Button>
+
       <Button
         variant="secondary"
         onclick={handleListenKeysChange}
+        title="Raccourcis Clavier (A/D)"
         class="{listenKeys
           ? ' bg-[#a09890b9] hover:bg-[#d1c4b7b2] '
           : 'bg-[#615d59] hover:bg-[#968d84]'} size-9 cursor-pointer rounded-none h-full flex items-center justify-center select-none"
@@ -295,9 +307,10 @@
         />
       </Button>
     </div>
+
     <Button
       variant="default"
-      onclick={onNext}
+      onclick={handleNextAction}
       disabled={stepIndex === guide.steps.length - 1}
       class="w-28 bg-[#a4713e] hover:bg-[#b8976f] select-none"
     >
