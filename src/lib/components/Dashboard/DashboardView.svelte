@@ -11,7 +11,7 @@
     openGuides,
     guideProgress = $bindable(),
     checkboxStates = $bindable(),
-    usableTitle = $bindable(), // Pour le binding dans GuideViewer
+    usableTitle = $bindable(),
     onCloseTab,
     onOpenGuide,
     onNavigate,

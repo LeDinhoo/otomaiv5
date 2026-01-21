@@ -12,14 +12,12 @@
     type AppProfile,
   } from "$lib/services/profileService";
 
-  // --- États Globaux ---
   let status = $state("Initialisation...");
-  let windowTitle = $state("Mon Personnage"); // Titre technique complet
-  let usableTitle = $state("Mon Personnage"); // Titre affiché (pseudo)
+  let windowTitle = $state("Mon Personnage");
+  let usableTitle = $state("Mon Personnage");
   let currentView = $state("dashboard");
   let isLoaded = $state(false);
 
-  // --- États du Dashboard ---
   let tabs = $state([]);
   let activeTab = $state("");
   let openGuides = $state({});
@@ -28,7 +26,6 @@
 
   let syncTimeout: number | undefined;
 
-  // --- Logique Métier : Synchronisation ---
   async function performWindowSync(nameToFind: string) {
     if (!nameToFind) return;
     try {
@@ -45,7 +42,6 @@
     }
   }
 
-  // --- Logique Métier : Gestion des Onglets/Guides ---
   async function handleOpenGuide(id: string) {
     status = "Chargement...";
     try {
@@ -72,7 +68,6 @@
     if (activeTab === id) activeTab = tabs.length > 0 ? tabs[0].id : "general";
   }
 
-  // --- Cycles de vie ---
   onMount(async () => {
     const profile = await loadProfile();
     let savedName = profile.characterName || "Mon Personnage";
@@ -82,7 +77,6 @@
     guideProgress = profile.guideProgress || {};
     checkboxStates = profile.checkboxStates || {};
 
-    // Restauration onglets
     if (profile.openTabIds && profile.openTabIds.length > 0) {
       const loadedTabs = [];
       for (const tabId of profile.openTabIds) {
@@ -107,7 +101,6 @@
     status = "Prêt";
   });
 
-  // Watcher: Changement de titre (Debounce)
   $effect(() => {
     if (!isLoaded) return;
     const currentTitle = usableTitle;
@@ -115,7 +108,6 @@
     syncTimeout = setTimeout(() => performWindowSync(currentTitle), 800);
   });
 
-  // Watcher: Sauvegarde auto
   $effect(() => {
     if (!isLoaded) return;
     saveProfile({
@@ -127,7 +119,6 @@
     });
   });
 
-  // Navigation interne aux guides
   async function handleNavigate(
     targetGuideId: string,
     targetStepIndex: number,
