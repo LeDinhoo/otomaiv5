@@ -7,3 +7,4 @@ pub mod travel_with_zaapi; // Nouveau !
 pub mod potions;
 pub mod automations;
 pub mod config;
+pub mod engine;

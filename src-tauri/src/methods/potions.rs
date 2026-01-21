@@ -8,7 +8,7 @@ pub fn potion_bonta(window_title: &str) -> Result<String, String> {
     thread::sleep(Duration::from_millis(200));
 
     // Slot 1 + Argument None
-    press_key::press_key_multiple_times("1", 1, None)?; 
+    press_key::press_key_multiple_times("-", 1, None)?; 
     thread::sleep(Duration::from_secs(4));
     Ok("Potion Bonta utilisée".to_string())
 }
@@ -19,7 +19,7 @@ pub fn potion_brakmar(window_title: &str) -> Result<String, String> {
     thread::sleep(Duration::from_millis(200));
 
     // Slot 2 + Argument None
-    press_key::press_key_multiple_times("2", 1, None)?;
+    press_key::press_key_multiple_times("=", 1, None)?;
     thread::sleep(Duration::from_secs(4));
     Ok("Potion Brakmar utilisée".to_string())
 }
