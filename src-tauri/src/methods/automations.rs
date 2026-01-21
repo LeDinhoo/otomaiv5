@@ -31,6 +31,8 @@ fn run_zaapi_sequence(zaapi_name: &str, travel_cmd: Option<&String>, window_titl
 pub fn execute_step_automation(step: &GuideResult, window_title: &str) -> Result<String, String> {
     let win_manager = WindowManager::new();
     win_manager.focus_by_title(window_title)?;
+    println!("Bonjour tout le monde !");
+
     thread::sleep(Duration::from_millis(200));
 
     match step.macro_type.as_str() {

@@ -25,13 +25,19 @@ fn greet(name: &str) -> String {
 
 #[tauri::command]
 async fn sync_window_title(character_name: String, state: tauri::State<'_, ActiveSession>) -> Result<String, String> {
+    // DEBUG CRITIQUE : {:?} permet de voir les espaces cachés ou les \n
+    // Si vous voyez "Nom " au lieu de "Nom", c'est là le problème.
+    println!("DEBUG INPUT: Reçu character_name = {:?}", character_name);
+
     if let Some(full_title) = window_finder::find_specific_game_window(&character_name) {
         let mut title_storage = state.window_title.lock().unwrap();
         *title_storage = Some(full_title.clone());
         println!("✅ Fenêtre trouvée et synchronisée : {}", full_title);
         Ok(full_title)
     } else {
-        Err(format!("Impossible de trouver une fenêtre pour {}", character_name))
+        // On renvoie une erreur plus précise
+        println!("❌ ECHEC: Aucune correspondance trouvée pour {:?}", character_name);
+        Err(format!("Impossible de trouver une fenêtre pour '{}'. Vérifiez les logs serveurs.", character_name))
     }
 }
 
@@ -91,7 +97,7 @@ fn parse_guide_step(html_content: String) -> GuideResult {
 }
 
 #[tauri::command]
-async fn execute_guide_step(
+async fn execute_step_automation(
     step: GuideResult, 
     state: tauri::State<'_, ActiveSession>
 ) -> Result<String, String> {
@@ -101,7 +107,13 @@ async fn execute_guide_step(
         title_lock.clone().ok_or("Aucune fenêtre synchronisée. Lancez la recherche d'abord.")?
     };
 
+    // --- AJOUT DU PRINT ICI ---
+    // On affiche le titre dans la console du terminal (là où vous avez lancé `tauri dev`)
+    println!("DEBUG - Titre de la fenêtre récupéré : {}", window_title);
+    // -------------------------
+
     // Exécution dans un thread séparé
+    // Note : Le mot clé `move` va déplacer `window_title` dans le thread juste après
     let result = std::thread::spawn(move || {
         methods::automations::execute_step_automation(&step, &window_title)
     }).join();
@@ -150,7 +162,7 @@ pub fn run() {
             use_potion_brakmar,
             sync_window_title,
             parse_guide_step,
-            execute_guide_step,
+            execute_step_automation,
             methods::key_listener::set_key_listener 
         ])
         .run(tauri::generate_context!())

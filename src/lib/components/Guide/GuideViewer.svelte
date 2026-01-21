@@ -61,9 +61,9 @@
     // Si Auto-Pilot est ON, on exécute le voyage
     if (autoPilot && currentAnalysis) {
       console.log(`🚀 Auto-Pilot : Exécution...`);
-      invoke("execute_guide_step", {
+      invoke("execute_step_automation", {
         step: currentAnalysis,
-        windowTitle: usableTitle || "Dofus", // Sécurité
+        windowTitle: usableTitle, // Sécurité
       }).catch((e) => console.error("Erreur Auto-Pilot:", e));
     }
     // On passe à la suite
@@ -239,16 +239,14 @@
     role="button"
     tabindex="0"
     onkeydown={() => {}}
-    class="flex-1 overflow-y-auto p-4 custom-scrollbar guide-content bg-stone-950/30 text-left cursor-auto relative"
+    class="flex-1 overflow-y-auto p-4 custom-scrollbar guide-content bg-stone-950/30 text-left cursor-auto"
   >
     {#if currentStep}
       <div class="text-stone-300">
         {@html formattedText}
 
         {#if tooltip.visible}
-          <div
-            class="fixed-guide-tooltip"
-          >
+          <div class="fixed-guide-tooltip">
             <img
               src="https://ganymede-dofus.com/images/icon_quest.png"
               alt="quest"
@@ -276,7 +274,7 @@
       <ChevronLeft class="w-4 h-4 mr-1" /> Précédent
     </Button>
 
-    <div class="flex items-center overflow-hidden rounded-sm h-full gap-1">
+    <div class="flex items-center overflow-hidden rounded-sm h-full">
       <Button
         variant="secondary"
         onclick={() => (autoPilot = !autoPilot)}
@@ -551,9 +549,6 @@
   }
 
   /* Style spécifique pour les quest-blocks convertis */
-  .guide-content :global([data-type="quest-block"][data-tooltip]) {
-    position: relative; /* Nécessaire pour positionner l'infobulle par rapport au bloc */
-  }
 
   /* Style de l'infobulle flottante */
   /* Configuration du tooltip fixe */
