@@ -1,12 +1,9 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import TitleBar from "$lib/components/TitleBar/TitleBar.svelte";
-  import TabBar from "$lib/components/TabBar/TabBar.svelte";
-  import Tab from "$lib/components/TabBar/Tab.svelte";
-  import SettingsPage from "$lib/components/Settings/SettingsPage.svelte";
-  import GuideLibrary from "$lib/components/Guide/GuideLibrary.svelte";
-  import GuideViewer from "$lib/components/Guide/GuideViewer.svelte";
   import { invoke } from "@tauri-apps/api/core";
+  import TitleBar from "$lib/components/TitleBar/TitleBar.svelte";
+  import SettingsPage from "$lib/components/Settings/SettingsPage.svelte";
+  import DashboardView from "$lib/components/Dashboard/DashboardView.svelte";
 
   import { loadOrDownloadGuide } from "$lib/services/guideService";
   import {
@@ -15,163 +12,56 @@
     type AppProfile,
   } from "$lib/services/profileService";
 
-  // --- États ---
+  // --- États Globaux ---
   let status = $state("Initialisation...");
-  let windowTitle = $state("Mon Personnage");
-  let usableTitle = $state("Mon Personnage");
-
+  let windowTitle = $state("Mon Personnage"); // Titre technique complet
+  let usableTitle = $state("Mon Personnage"); // Titre affiché (pseudo)
   let currentView = $state("dashboard");
+  let isLoaded = $state(false);
 
-  // Fonction pour basculer la vue
-  function toggleSettingsView() {
-    if (currentView === "dashboard") {
-      currentView = "settings";
-    } else {
-      currentView = "dashboard";
-    }
-  }
-
-  // Gestion des onglets
+  // --- États du Dashboard ---
   let tabs = $state([]);
   let activeTab = $state("");
-
-  // Données des guides
   let openGuides = $state({});
   let guideProgress = $state({});
   let checkboxStates = $state({});
 
-  let isLoaded = $state(false);
-  let syncTimeout: number | undefined; // Pour le debounce
+  let syncTimeout: number | undefined;
 
-  // --- NOUVELLE FONCTION : SYNCHRONISATION CENTRALISÉE ---
+  // --- Logique Métier : Synchronisation ---
   async function performWindowSync(nameToFind: string) {
     if (!nameToFind) return;
-
-    // status = `Recherche de "${nameToFind}"...`;
-    // console.log(`🔄 Tentative de synchronisation pour : [${nameToFind}]`);
-
     try {
-      // 1. On récupère le titre COMPLET depuis Rust (ex: "Miguel - Dofus - Release")
       const fullTitle = await invoke("sync_window_title", {
         characterName: nameToFind,
       });
-
-      console.log("✅ Rust a trouvé :", fullTitle);
-
-      // 2. On met à jour la variable technique (celle utilisée pour les screenshots, etc.)
-      windowTitle = fullTitle;
-
-      // 3. NETTOYAGE VISUEL : On ne garde que le pseudo pour l'affichage
-      const cleanPseudo = fullTitle.split(" - ")[0];
-
-      // On ne change l'affichage que si nécessaire (évite les sauts de curseur)
-      if (usableTitle !== cleanPseudo) {
-        usableTitle = cleanPseudo;
-      }
-
+      windowTitle = fullTitle as string;
+      const cleanPseudo = (fullTitle as string).split(" - ")[0];
+      if (usableTitle !== cleanPseudo) usableTitle = cleanPseudo;
       status = "Synchronisé ✅";
     } catch (e) {
-      console.error("Erreur synchro fenêtre:", e);
+      console.error("Erreur synchro:", e);
       status = "Fenêtre introuvable ❌";
     }
   }
 
-  // --- 1. CHARGEMENT AU DÉMARRAGE ---
-  onMount(async () => {
-    console.log("🚀 Démarrage du chargement du profil...");
-    const profile = await loadProfile();
-
-    // Restauration des données simples avec NETTOYAGE
-    let savedName = profile.characterName || "Mon Personnage";
-
-    // On stocke le nom complet technique
-    windowTitle = savedName;
-    // On nettoie direct pour l'affichage (au cas où un nom long a été sauvegardé)
-    usableTitle = savedName.split(" - ")[0];
-
-    guideProgress = profile.guideProgress || {};
-    checkboxStates = profile.checkboxStates || {};
-
-    // Restauration des onglets
-    if (profile.openTabIds && profile.openTabIds.length > 0) {
-      status = "Restauration de la session...";
-      const loadedTabs = [];
-
-      for (const tabId of profile.openTabIds) {
-        try {
-          const guideId = tabId.replace("guide_", "");
-          const guideData = await loadOrDownloadGuide(guideId);
-          openGuides[tabId] = guideData;
-          loadedTabs.push({ id: tabId, label: guideData.name });
-        } catch (e) {
-          console.error(`Impossible de restaurer ${tabId}`, e);
-        }
-      }
-      tabs = loadedTabs;
-    }
-
-    // Restauration de l'onglet actif
-    if (profile.activeTabId && tabs.find((t) => t.id === profile.activeTabId)) {
-      activeTab = profile.activeTabId;
-    }
-
-    // On marque comme chargé AVANT de lancer la première synchro
-    isLoaded = true;
-
-    // Première tentative immédiate avec le titre nettoyé
-    await performWindowSync(usableTitle);
-
-    status = "Prêt";
-  });
-
-  // --- 2. SURVEILLANCE DES CHANGEMENTS DE TITRE ($effect) ---
-  // Dès que 'usableTitle' change (via l'input utilisateur), on relance la synchro
-  $effect(() => {
-    // On ne fait rien tant que le profil n'est pas chargé
-    if (!isLoaded) return;
-
-    // Dépendance explicite pour Svelte 5
-    const currentTitle = usableTitle;
-
-    // Debounce : on attend 800ms que l'utilisateur finisse de taper
-    if (syncTimeout) clearTimeout(syncTimeout);
-
-    syncTimeout = setTimeout(() => {
-      performWindowSync(currentTitle);
-    }, 800);
-  });
-
-  // --- 3. SAUVEGARDE AUTOMATIQUE ---
-  $effect(() => {
-    if (!isLoaded) return;
-
-    const profileToSave: AppProfile = {
-      characterName: windowTitle, // On sauvegarde le titre COMPLET (technique) pour la prochaine fois
-      openTabIds: tabs.map((t) => t.id),
-      activeTabId: activeTab,
-      guideProgress: $state.snapshot(guideProgress),
-      checkboxStates: $state.snapshot(checkboxStates),
-    };
-
-    saveProfile(profileToSave);
-  });
-
-  // --- Actions (Reste inchangé) ---
+  // --- Logique Métier : Gestion des Onglets/Guides ---
   async function handleOpenGuide(id: string) {
     status = "Chargement...";
     try {
       const guideData = await loadOrDownloadGuide(id);
       const tabId = `guide_${id}`;
-
       openGuides[tabId] = guideData;
 
       if (guideProgress[tabId] === undefined) guideProgress[tabId] = 0;
       if (!checkboxStates[tabId]) checkboxStates[tabId] = {};
-      if (!tabs.find((t) => t.id === tabId))
-        tabs.push({ id: tabId, label: guideData.name });
 
+      if (!tabs.find((t) => t.id === tabId)) {
+        tabs.push({ id: tabId, label: guideData.name });
+      }
       activeTab = tabId;
       status = `Guide chargé : ${guideData.name}`;
+      return tabId;
     } catch (e) {
       status = "Erreur : " + e;
     }
@@ -182,14 +72,62 @@
     if (activeTab === id) activeTab = tabs.length > 0 ? tabs[0].id : "general";
   }
 
-  function prevStep(tabId: string) {
-    if (guideProgress[tabId] > 0) guideProgress[tabId]--;
-  }
+  // --- Cycles de vie ---
+  onMount(async () => {
+    const profile = await loadProfile();
+    let savedName = profile.characterName || "Mon Personnage";
 
-  function nextStep(tabId: string, totalSteps: number) {
-    if (guideProgress[tabId] < totalSteps - 1) guideProgress[tabId]++;
-  }
+    windowTitle = savedName;
+    usableTitle = savedName.split(" - ")[0];
+    guideProgress = profile.guideProgress || {};
+    checkboxStates = profile.checkboxStates || {};
 
+    // Restauration onglets
+    if (profile.openTabIds && profile.openTabIds.length > 0) {
+      const loadedTabs = [];
+      for (const tabId of profile.openTabIds) {
+        try {
+          const guideId = tabId.replace("guide_", "");
+          const guideData = await loadOrDownloadGuide(guideId);
+          openGuides[tabId] = guideData;
+          loadedTabs.push({ id: tabId, label: guideData.name });
+        } catch (e) {
+          console.error(e);
+        }
+      }
+      tabs = loadedTabs;
+    }
+
+    if (profile.activeTabId && tabs.find((t) => t.id === profile.activeTabId)) {
+      activeTab = profile.activeTabId;
+    }
+
+    isLoaded = true;
+    await performWindowSync(usableTitle);
+    status = "Prêt";
+  });
+
+  // Watcher: Changement de titre (Debounce)
+  $effect(() => {
+    if (!isLoaded) return;
+    const currentTitle = usableTitle;
+    if (syncTimeout) clearTimeout(syncTimeout);
+    syncTimeout = setTimeout(() => performWindowSync(currentTitle), 800);
+  });
+
+  // Watcher: Sauvegarde auto
+  $effect(() => {
+    if (!isLoaded) return;
+    saveProfile({
+      characterName: windowTitle,
+      openTabIds: tabs.map((t) => t.id),
+      activeTabId: activeTab,
+      guideProgress: $state.snapshot(guideProgress),
+      checkboxStates: $state.snapshot(checkboxStates),
+    });
+  });
+
+  // Navigation interne aux guides
   async function handleNavigate(
     targetGuideId: string,
     targetStepIndex: number,
@@ -210,10 +148,12 @@
     <TitleBar
       bind:windowTitle
       bind:usableTitle
-      onToggleSettings={toggleSettingsView}
+      onToggleSettings={() =>
+        (currentView = currentView === "dashboard" ? "settings" : "dashboard")}
       statusMessage={status}
     />
   </div>
+
   {#if currentView === "settings"}
     <div class="flex-1 overflow-hidden">
       <SettingsPage
@@ -224,54 +164,19 @@
       />
     </div>
   {:else}
-    <div class="flex flex-col flex-1 min-h-0 overflow-hidden">
-      <div class="flex-none">
-        <TabBar>
-          {#each tabs as tab}
-            <Tab
-              label={tab.label}
-              active={activeTab === tab.id}
-              onclick={() => (activeTab = tab.id)}
-              onclose={tab.id !== "general"
-                ? () => closeTab(tab.id)
-                : undefined}
-            />
-          {/each}
-        </TabBar>
-      </div>
-
-      <div class="flex-1 min-h-0 flex flex-col relative overflow-hidden">
-        {#if tabs.length === 0}
-          <div
-            class="flex items-center justify-center h-full text-stone-500 italic"
-          >
-            Aucun onglet ouvert.
-          </div>
-        {:else if activeTab === "general"}
-          <GuideLibrary onOpen={handleOpenGuide} />
-        {:else if activeTab.startsWith("guide_")}
-          {@const guide = openGuides[activeTab]}
-
-          {#if !checkboxStates[activeTab]}
-            {(checkboxStates[activeTab] = {})}
-          {/if}
-
-          <GuideViewer
-            {guide}
-            bind:stepIndex={guideProgress[activeTab]}
-            bind:checkboxState={checkboxStates[activeTab]}
-            onPrev={() => prevStep(activeTab)}
-            onNext={() => nextStep(activeTab, guide.steps.length)}
-            onNavigate={handleNavigate}
-            bind:usableTitle
-          />
-        {/if}
-      </div>
-    </div>
-    <!-- <div
-      class="fixed bottom-0 right-0 p-1 text-xs text-stone-500 opacity-50 pointer-events-none"
-    >
-      Target: {usableTitle} | {status}
-    </div> -->
+    <DashboardView
+      {tabs}
+      {openGuides}
+      bind:activeTab
+      bind:guideProgress
+      bind:checkboxStates
+      bind:usableTitle
+      onCloseTab={closeTab}
+      onOpenGuide={handleOpenGuide}
+      onNavigate={handleNavigate}
+      onPrevStep={(id) => guideProgress[id] > 0 && guideProgress[id]--}
+      onNextStep={(id, total) =>
+        guideProgress[id] < total - 1 && guideProgress[id]++}
+    />
   {/if}
 </div>

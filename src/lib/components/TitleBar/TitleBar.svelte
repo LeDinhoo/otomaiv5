@@ -1,5 +1,4 @@
 <script lang="ts">
-  // @ts-nocheck
   import { getCurrentWindow } from "@tauri-apps/api/window";
   import { Button } from "$lib/components/ui/button/index.js";
   import {
@@ -13,16 +12,14 @@
   } from "@lucide/svelte";
 
   let {
-    windowTitle = $bindable(), // Le titre technique (pour info, si besoin)
-    usableTitle = $bindable(), // Le titre affiché (celui qu'on modifie)
-    statusMessage = "", // L'état de la synchro venant de App.svelte
+    windowTitle = $bindable(),
+    usableTitle = $bindable(),
+    statusMessage = "",
     onToggleSettings,
   } = $props();
 
-  // Par défaut verrouillé si on a déjà un titre, sinon ouvert
   let isLocked = $state(usableTitle && usableTitle !== "Mon Personnage");
 
-  // On déduit si c'est trouvé grâce au message du parent (App.svelte)
   let isFound = $derived(statusMessage.includes("✅"));
   let isError = $derived(statusMessage.includes("❌"));
 
@@ -125,7 +122,6 @@
 </div>
 
 <style>
-  /* Cette propriété CSS magique permet à l'input de s'adapter à la largeur du texte */
   input {
     field-sizing: content;
   }

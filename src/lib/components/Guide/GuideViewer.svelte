@@ -17,7 +17,7 @@
     checkboxState = $bindable({}),
     onPrev,
     onNext,
-    // On récupère le titre synchronisé pour l'Auto-Pilot
+
     usableTitle = $bindable(""),
     onNavigate,
   } = $props();
@@ -29,23 +29,17 @@
 
   let contentDiv: HTMLElement;
 
-  // --- ÉTATS ---
   let listenKeys = $state(true);
-  let autoPilot = $state(false); // État de l'Auto-Pilot
+  let autoPilot = $state(false);
   let unlistenHandle: (() => void) | undefined;
 
-  // État pour les info-bulles de quêtes
   let tooltip = $state({
     visible: false,
     text: "",
   });
 
-  // Stockage de l'analyse Rust pour exécution
   let currentAnalysis = $state(null);
 
-  // --- 1. LOGIQUE AUTO-PILOT (RUST) ---
-
-  // Analyse l'étape au chargement (sans bouger)
   async function analyzeStep(html: string) {
     try {
       const result = await invoke("parse_guide_step", { htmlContent: html });
@@ -56,34 +50,26 @@
     }
   }
 
-  // Action au clic sur "Suivant" (ou touche D)
   async function handleNextAction() {
-    // Si Auto-Pilot est ON, on exécute le voyage
     if (autoPilot && currentAnalysis) {
       console.log(`🚀 Auto-Pilot : Exécution...`);
       invoke("execute_step_automation", {
         step: currentAnalysis,
-        windowTitle: usableTitle, // Sécurité
+        windowTitle: usableTitle,
       }).catch((e) => console.error("Erreur Auto-Pilot:", e));
     }
-    // On passe à la suite
+
     onNext();
   }
 
-  // Surveille le changement d'étape pour lancer l'analyse
   $effect(() => {
     if (currentStep && currentStep.web_text) {
       analyzeStep(currentStep.web_text);
     }
   });
 
-  // --- 2. GESTION CLAVIER (Ta version améliorée) ---
-
   onMount(async () => {
-    // 1. On active l'écoute côté Rust
     await invoke("set_key_listener", { active: true, keys: ["a", "d"] });
-
-    // 2. Sécurité : On s'assure qu'on n'écoute pas déjà
     if (!unlistenHandle) {
       unlistenHandle = await listen("key-detected", (event) => {
         if (!listenKeys) return;
@@ -92,7 +78,7 @@
         if (key === "a") {
           onPrev();
         } else if (key === "d") {
-          handleNextAction(); // <-- MODIFIÉ : Appelle la logique Auto-Pilot
+          handleNextAction();
         }
       });
     }
@@ -114,9 +100,6 @@
     });
   }
 
-  // --- 3. LOGIQUE UI (Checkboxes, Tooltips, Navigation) ---
-
-  // Gestion des clics sur les liens (Navigation inter-guides)
   function handleContentClick(event: MouseEvent) {
     const target = event.target as HTMLElement;
     const stepLink = target.closest('[data-type="guide-step"], .guide-step');
@@ -137,11 +120,8 @@
     }
   }
 
-  // Effet combiné : Checkboxes + Tooltips Quêtes
   $effect(() => {
     if (!contentDiv) return;
-
-    // A. Checkboxes
     const inputs = contentDiv.querySelectorAll('input[type="checkbox"]');
     if (!checkboxState[stepIndex]) checkboxState[stepIndex] = [];
 
@@ -153,7 +133,6 @@
       };
     });
 
-    // B. Tooltips Quêtes (Ta logique)
     const questBlocks = contentDiv.querySelectorAll(
       '[data-type="quest-block"][title]',
     );
@@ -173,7 +152,6 @@
     });
   });
 
-  // --- UTILS ---
   function handleStepInput(e: Event) {
     const input = e.target as HTMLInputElement;
     const val = parseInt(input.value);
@@ -247,10 +225,6 @@
 
         {#if tooltip.visible}
           <div class="fixed-guide-tooltip">
-            <img
-              src="https://ganymede-dofus.com/images/icon_quest.png"
-              alt="quest"
-            />
             <div class="tooltip-body">
               {tooltip.text}
             </div>
@@ -548,18 +522,14 @@
     padding: 0 2px;
   }
 
-  /* Style spécifique pour les quest-blocks convertis */
-
-  /* Style de l'infobulle flottante */
-  /* Configuration du tooltip fixe */
   .fixed-guide-tooltip {
     position: absolute;
     top: 50px;
     right: 30px;
     z-index: 50;
 
-    background-color: #1c1917; /* stone-900 */
-    border: 1px solid #cecece21; /* Bordure rose quête */
+    background-color: #1c1917;
+    border: 1px solid #cecece21;
     border-radius: 8px;
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.6);
     display: flex;
@@ -567,9 +537,8 @@
     flex-direction: row;
     align-items: center;
 
-    /* Animation d'entrée douce */
     animation: slideIn 0.2s ease-out;
-    pointer-events: none; /* Important : permet de cliquer "au travers" si besoin */
+    pointer-events: none;
   }
 
   .fixed-guide-tooltip img {
@@ -600,7 +569,6 @@
     }
   }
 
-  /* RAPPEL : Correction pour enlever la ligne blanche pointillée par défaut */
   .guide-content :global([data-type="quest-block"]) {
     border-bottom: 1px solid #4444447a !important;
   }
