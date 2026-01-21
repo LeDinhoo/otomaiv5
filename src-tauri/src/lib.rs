@@ -7,16 +7,23 @@ use mouse_manager::MouseManager;
 mod methods;
 mod window_finder;
 
+mod settings;
+use settings::{AutomationSettings, SettingsState};
+
 use std::sync::{Arc, Mutex};
 use methods::key_listener::{self, SharedKeyListenerState, KeyListenerState};
 use methods::guide_parser::{GuideParser, GuideResult};
 
-// --- GESTION DE L'ÉTAT (TITRE FENÊTRE) ---
+use tauri::{Emitter, AppHandle, Manager}; // <--- AJOUT CRITIQUE ICI : "Manager"
+
+
 pub struct ActiveSession {
-    pub window_title: Mutex<Option<String>>,
+    pub window_title: Mutex<Option<String>>,     
+    pub target_char_name: Mutex<Option<String>>, 
+    pub is_recovering: Mutex<bool>,              
 }
 
-// --- COMMANDES TAURI ---
+
 
 #[tauri::command]
 fn greet(name: &str) -> String {
@@ -24,20 +31,106 @@ fn greet(name: &str) -> String {
 }
 
 #[tauri::command]
-async fn sync_window_title(character_name: String, state: tauri::State<'_, ActiveSession>) -> Result<String, String> {
-    // DEBUG CRITIQUE : {:?} permet de voir les espaces cachés ou les \n
-    // Si vous voyez "Nom " au lieu de "Nom", c'est là le problème.
-    println!("DEBUG INPUT: Reçu character_name = {:?}", character_name);
+fn send_chat_command(command: String, window_title: String) -> Result<String, String> {
+    let manager = window_manager::WindowManager::new();
+    manager.focus_by_title(&window_title)?;
+    methods::type_text::type_text_fast(&command)?;
+    methods::press_key::press_key_multiple_times("enter", 1, Some(100))?;
+    Ok("Commande envoyée".to_string())
+}
+
+
+#[tauri::command]
+async fn sync_window_title(
+    character_name: String, 
+    state: tauri::State<'_, ActiveSession>,
+    app_handle: AppHandle 
+) -> Result<String, String> {
+    println!("DEBUG INPUT: Sync demandée pour {:?}", character_name);
+
+    
+    {
+        let mut target_storage = state.target_char_name.lock().unwrap();
+        *target_storage = Some(character_name.clone());
+    }
 
     if let Some(full_title) = window_finder::find_specific_game_window(&character_name) {
         let mut title_storage = state.window_title.lock().unwrap();
         *title_storage = Some(full_title.clone());
+        
         println!("✅ Fenêtre trouvée et synchronisée : {}", full_title);
+        
+        
+        let _ = app_handle.emit("sync-status", "synced");
+        
         Ok(full_title)
     } else {
-        // On renvoie une erreur plus précise
-        println!("❌ ECHEC: Aucune correspondance trouvée pour {:?}", character_name);
-        Err(format!("Impossible de trouver une fenêtre pour '{}'. Vérifiez les logs serveurs.", character_name))
+        println!("❌ ECHEC Sync initiale");
+        let _ = app_handle.emit("sync-status", "lost"); 
+        Err(format!("Impossible de trouver une fenêtre pour '{}'.", character_name))
+    }
+}
+
+
+
+
+#[tauri::command]
+async fn trigger_auto_recovery(
+    state: tauri::State<'_, ActiveSession>,
+    app_handle: AppHandle
+) -> Result<String, String> {
+    
+    {
+        let mut recovering = state.is_recovering.lock().unwrap();
+        if *recovering {
+            return Ok("Récupération déjà en cours...".to_string());
+        }
+        *recovering = true;
+    }
+
+    
+    let target_name = {
+        let lock = state.target_char_name.lock().unwrap();
+        match lock.clone() {
+            Some(name) => name,
+            None => {
+                
+                let mut recovering = state.is_recovering.lock().unwrap();
+                *recovering = false;
+                return Err("Aucun personnage cible défini.".to_string());
+            }
+        }
+    };
+
+    println!("🚨 DÉCLENCHEMENT AUTO-RECOVERY pour '{}'", target_name);
+    
+    
+    let _ = app_handle.emit("sync-status", "recovering");
+
+    
+    let state_clone = state.inner().clone(); 
+
+    let found_title = window_finder::try_autorecovery(&target_name);
+
+    
+    let mut recovering = state.is_recovering.lock().unwrap();
+    *recovering = false; 
+
+    if let Some(title) = found_title {
+        let mut title_storage = state.window_title.lock().unwrap();
+        *title_storage = Some(title.clone());
+        
+        println!("✅ RECOVERY SUCCÈS ! Nouvelle fenêtre : {}", title);
+        let _ = app_handle.emit("sync-status", "synced"); 
+        Ok("Récupération réussie".to_string())
+    } else {
+        println!("❌ RECOVERY ÉCHEC FINAL.");
+        
+        let mut title_storage = state.window_title.lock().unwrap();
+        *title_storage = None;
+        
+        let _ = app_handle.emit("sync-status", "lost"); 
+        Err("Impossible de retrouver la fenêtre après 30 essais.".to_string())
     }
 }
 
@@ -54,16 +147,54 @@ fn click_window_at(title: String, x: i32, y: i32) -> Result<String, String> {
 }
 
 #[tauri::command]
+fn get_settings(state: tauri::State<'_, SettingsState>) -> AutomationSettings {
+    state.0.lock().unwrap().clone()
+}
+
+#[tauri::command]
+async fn execute_step_automation(
+    step: GuideResult, 
+    state: tauri::State<'_, ActiveSession>,
+    settings_state: tauri::State<'_, SettingsState> // <--- AJOUTE ÇA
+) -> Result<String, String> {
+    let window_title = {
+        let title_lock = state.window_title.lock().unwrap();
+        title_lock.clone().ok_or("Aucune fenêtre synchronisée.")?
+    };
+
+    // CRUCIAL : On récupère une COPIE des settings MAINTENANT pour les donner au thread
+    let settings = settings_state.0.lock().unwrap().clone();
+
+    println!("DEBUG - Titre : {}", window_title);
+
+    // On passe les settings à la fonction
+    let result = std::thread::spawn(move || {
+        methods::automations::execute_step_automation(&step, &window_title, &settings)
+    }).join();
+
+    match result {
+        Ok(res) => res,
+        Err(_) => Err("Crash critique thread.".to_string()),
+    }
+}
+
+#[tauri::command]
+fn save_settings_cmd(app: tauri::AppHandle, state: tauri::State<'_, SettingsState>, new_settings: AutomationSettings) -> Result<(), String> {
+    // 1. Mise à jour mémoire
+    let mut lock = state.0.lock().unwrap();
+    *lock = new_settings.clone();
+    
+    // 2. Sauvegarde disque
+    settings::save_settings(&app, &new_settings)
+}
+
+#[tauri::command]
 fn get_game_title_by_name(character_name: String) -> Result<String, String> {
     window_finder::find_specific_game_window(&character_name).ok_or_else(|| {
-        format!(
-            "Fenêtre pour le personnage '{}' introuvable.",
-            character_name
-        )
+        format!("Fenêtre pour le personnage '{}' introuvable.", character_name)
     })
 }
 
-// NOTE : Accepte maintenant le délai optionnel
 #[tauri::command]
 fn press_key(key: String, count: u32, delay: Option<u64>) -> Result<String, String> {
     methods::press_key::press_key_multiple_times(&key, count, delay)
@@ -74,11 +205,6 @@ fn quick_type(text: String, window_title: String) -> Result<String, String> {
     let manager = window_manager::WindowManager::new();
     manager.focus_by_title(&window_title)?;
     methods::type_text::type_text_fast(&text)
-}
-
-#[tauri::command]
-fn travel_with_zaap(destination: String, window_title: String) -> Result<String, String> {
-    methods::travel_with_zaap::travel_with_zaap(&destination, &window_title)
 }
 
 #[tauri::command]
@@ -96,42 +222,34 @@ fn parse_guide_step(html_content: String) -> GuideResult {
     GuideParser::parse_step(&html_content)
 }
 
-#[tauri::command]
-async fn execute_step_automation(
-    step: GuideResult, 
-    state: tauri::State<'_, ActiveSession>
-) -> Result<String, String> {
-    // Récupération sécurisée du titre depuis la mémoire
-    let window_title = {
-        let title_lock = state.window_title.lock().unwrap();
-        title_lock.clone().ok_or("Aucune fenêtre synchronisée. Lancez la recherche d'abord.")?
-    };
+// #[tauri::command]
+// async fn execute_step_automation(
+//     step: GuideResult, 
+//     state: tauri::State<'_, ActiveSession>
+// ) -> Result<String, String> {
+//     let window_title = {
+//         let title_lock = state.window_title.lock().unwrap();
+//         title_lock.clone().ok_or("Aucune fenêtre synchronisée.")?
+//     };
 
-    // --- AJOUT DU PRINT ICI ---
-    // On affiche le titre dans la console du terminal (là où vous avez lancé `tauri dev`)
-    println!("DEBUG - Titre de la fenêtre récupéré : {}", window_title);
-    // -------------------------
+//     println!("DEBUG - Titre de la fenêtre récupéré : {}", window_title);
 
-    // Exécution dans un thread séparé
-    // Note : Le mot clé `move` va déplacer `window_title` dans le thread juste après
-    let result = std::thread::spawn(move || {
-        methods::automations::execute_step_automation(&step, &window_title)
-    }).join();
+//     let result = std::thread::spawn(move || {
+//         methods::automations::execute_step_automation(&step, &window_title)
+//     }).join();
 
-    match result {
-        Ok(res) => res,
-        Err(_) => Err("Crash critique du thread d'automatisation.".to_string()),
-    }
-}
+//     match result {
+//         Ok(res) => res,
+//         Err(_) => Err("Crash critique du thread d'automatisation.".to_string()),
+//     }
+// }
 
-// --- MAIN RUN ---
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    // État initial Listener
     let listener_state: SharedKeyListenerState = Arc::new(Mutex::new(KeyListenerState {
         active: false,
-        target_keys: vec![], 
+        target_keys: vec![],
     }));
 
     tauri::Builder::default()
@@ -139,17 +257,36 @@ pub fn run() {
         .plugin(tauri_plugin_http::init())
         .plugin(tauri_plugin_opener::init())
         
-        // 1. Enregistrement des États
-        .manage(listener_state) 
-        .manage(ActiveSession { window_title: Mutex::new(None) }) 
+        .manage(listener_state)
+        
+        // 1. GESTION DE SESSION
+        .manage(ActiveSession { 
+            window_title: Mutex::new(None),
+            target_char_name: Mutex::new(None),
+            is_recovering: Mutex::new(false)
+        }) 
 
-        // 2. Setup Listener
+        // 2. GESTION DES SETTINGS (CORRECTION ICI)
+        // On l'enregistre ici avec ::default() pour être sûr qu'il existe dès le lancement.
+        // Cela évite l'erreur "state not managed".
+        .manage(SettingsState(Mutex::new(AutomationSettings::default())))
+
         .setup(|app| {
+            // 3. CHARGEMENT RÉEL (Dans le setup)
+            // Maintenant que l'app est lancée, on peut accéder aux fichiers
+            let loaded_settings = settings::load_settings(app.handle());
+            
+            // On récupère l'état qu'on vient de créer juste au-dessus
+            let state = app.state::<SettingsState>();
+            
+            // Et on remplace les valeurs par celles du fichier
+            *state.0.lock().unwrap() = loaded_settings;
+            
+            // Lancement du listener clavier
             key_listener::init_background_listener(app.handle());
             Ok(())
         })
         
-        // 3. Enregistrement des Commandes
         .invoke_handler(tauri::generate_handler![
             greet,
             focus_window,
@@ -157,13 +294,16 @@ pub fn run() {
             get_game_title_by_name,
             press_key,
             quick_type,
-            travel_with_zaap,
             use_potion_bonta,
             use_potion_brakmar,
             sync_window_title,
+            trigger_auto_recovery,
             parse_guide_step,
             execute_step_automation,
-            methods::key_listener::set_key_listener 
+            methods::key_listener::set_key_listener,
+            send_chat_command,
+            get_settings,
+            save_settings_cmd
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

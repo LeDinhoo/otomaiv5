@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { invoke } from "@tauri-apps/api/core";
+
   let {
     currentStep,
     guideId,
@@ -20,6 +22,28 @@
 
   function handleContentClick(event: MouseEvent) {
     const target = event.target as HTMLElement;
+
+    // --- NOUVELLE LOGIQUE POUR LE DÉPLACEMENT ---
+    if (target.matches(".inline-pos")) {
+      event.preventDefault();
+      event.stopPropagation();
+
+      // Récupère le texte ex: "[-20,10]" et le transforme en "-20,10"
+      const rawText = target.textContent || "";
+      const coords = rawText.replace(/[\[\]]/g, "").trim();
+
+      if (coords) {
+        console.log(`Déplacement vers : ${coords}`);
+        // Appel à ta commande Rust
+        invoke("send_chat_command", { command: `/travel ${coords}` }).catch(
+          (err) => {
+            console.error("Erreur travel:", err);
+          },
+        );
+      }
+      return;
+    }
+
     const stepLink = target.closest('[data-type="guide-step"], .guide-step');
 
     if (stepLink && onNavigate) {
@@ -119,7 +143,7 @@
 
   .guide-content {
     font-family: sans-serif;
-    font-size: 1.05rem;
+    font-size: 0.9rem;
     font-weight: 100;
     color: #e7e5e4;
   }

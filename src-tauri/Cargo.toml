@@ -20,6 +20,7 @@ tauri-build = { version = "2", features = [] }
 [dependencies]
 tauri = { version = "2", features = [] }
 tauri-plugin-opener = "2"
+device_query = "2.1.0" # <-- AJOUTE ÇA
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 enigo = "0.2"
@@ -27,6 +28,11 @@ regex = "1.10"
 tauri-plugin-http = "2"
 tauri-plugin-fs = "2"
 rdev = "0.5"
+opencv = "0.94"
+screenshots = "0.8"  
+image = "0.24"
+strsim = "0.11.0"
+    
 
 [dependencies.windows]
 version = "0.58" # Ou la version la plus récente

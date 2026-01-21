@@ -2,20 +2,22 @@
   import { onMount } from "svelte";
   import { invoke } from "@tauri-apps/api/core";
   import TitleBar from "$lib/components/TitleBar/TitleBar.svelte";
-  import SettingsPage from "$lib/components/Settings/SettingsPage.svelte";
+
+  // Imports des 3 vues
+  import LibraryPage from "$lib/components/Settings/LibraryPage.svelte";
+  import SettingsPage from "$lib/components/Settings/SettingsPage.svelte"; // <--- Assure-toi du chemin
   import DashboardView from "$lib/components/Dashboard/DashboardView.svelte";
 
   import { loadOrDownloadGuide } from "$lib/services/guideService";
-  import {
-    saveProfile,
-    loadProfile,
-    type AppProfile,
-  } from "$lib/services/profileService";
+  import { saveProfile, loadProfile } from "$lib/services/profileService";
 
   let status = $state("Initialisation...");
   let windowTitle = $state("Mon Personnage");
   let usableTitle = $state("Mon Personnage");
+
+  // GESTION DE LA VUE ACTIVE : "dashboard" | "library" | "settings"
   let currentView = $state("dashboard");
+
   let isLoaded = $state(false);
 
   let tabs = $state([]);
@@ -135,24 +137,27 @@
 <div
   class="flex flex-col h-screen w-full bg-stone-900 border border-stone-700 rounded-md overflow-hidden text-stone-200"
 >
-  <div class="flex-none">
     <TitleBar
       bind:windowTitle
       bind:usableTitle
-      onToggleSettings={() =>
-        (currentView = currentView === "dashboard" ? "settings" : "dashboard")}
       statusMessage={status}
+      onToggleLibrary={() =>
+        (currentView = currentView === "library" ? "dashboard" : "library")}
+      onToggleSettings={() =>
+        (currentView = currentView === "settings" ? "dashboard" : "settings")}
     />
-  </div>
-
-  {#if currentView === "settings"}
+  {#if currentView === "library"}
     <div class="flex-1 overflow-hidden">
-      <SettingsPage
+      <LibraryPage
         onSelectGuide={(id) => {
           handleOpenGuide(id);
           currentView = "dashboard";
         }}
       />
+    </div>
+  {:else if currentView === "settings"}
+    <div class="flex-1 overflow-hidden bg-stone-900">
+      <SettingsPage />
     </div>
   {:else}
     <DashboardView
