@@ -136,7 +136,7 @@ pub fn travel_with_zaap(zaap_name: &str, travel_cmd: Option<&String>, window_tit
     
     let mut sequence = vec![
         key("h"),                
-        wait(1500),
+        wait(1200),
         click(POS_ZAAP_INPUT),   
         write(zaap_name),        
         key("enter"),            
@@ -195,20 +195,28 @@ fn run_zaapi_sequence(zaapi_name: &str, travel_cmd: Option<&String>, window_titl
         _ => POS_ZAAPI_BONTA, // Bonta par défaut (le plus sûr)
     };
 
+    let zaapi_wait_time = match closest_city_name.as_str() {
+        "Sufokia" => WAIT_ZAPPI_SUFOKIA,
+        "Brakmar" => WAIT_ZAPPI_BRAKMAR,
+        "Frigost" => WAIT_ZAPPI_FRIGOST,
+        _ => WAIT_ZAPPI_BONTA,
+    };
+
         let mut sequence = vec![
         key("h"),                
-        wait(1500),
+        wait(1200),
         click(POS_ZAAP_INPUT),   
         write(closest_city_name.as_str()),        
         key("enter"),            
         wait(2000),
         click(pos_zaapi),
-        wait(4000),
+        wait(zaapi_wait_time),
         click(get_zaapi_category_pos(zaapi_name)),
         wait(100),
         click(POS_INPUT_TEXT_ZAAPI),
         write(zaapi_name),
-        key("enter")
+        key("enter"),
+        wait(200)
     ];
 
     if let Some(cmd) = travel_cmd {
@@ -251,24 +259,31 @@ fn run_zaap_zaapi_sequence(
         "Sufokia" => POS_ZAAPI_SUFOKIA,
         "Brakmar" => POS_ZAAPI_BRAKMAR,
         "Frigost" => POS_ZAAPI_FRIGOST,
-        _ => POS_ZAAPI_BONTA, // Bonta par défaut (le plus sûr)
+        _ => POS_ZAAPI_BONTA,
+    };
+
+    let zaapi_wait_time = match closest_city_name.as_str() {
+        "Sufokia" => WAIT_ZAPPI_SUFOKIA,
+        "Brakmar" => WAIT_ZAPPI_BRAKMAR,
+        "Frigost" => WAIT_ZAPPI_FRIGOST,
+        _ => WAIT_ZAPPI_BONTA,
     };
     
     let mut sequence = vec![
         key("h"),                
-        wait(1500),
+        wait(1200),
         click(POS_ZAAP_INPUT),   
         write(zaap_name),        
         key("enter"),            
         wait(2000),
         click(pos_zaapi),
-        wait(4000),
+        wait(zaapi_wait_time),
         click(get_zaapi_category_pos(zaapi_name)),
         wait(100),
         click(POS_INPUT_TEXT_ZAAPI),
         write(zaapi_name),
         key("enter"),
-        wait(100)
+        wait(200)
     ];
 
     if let Some(cmd) = travel_cmd {

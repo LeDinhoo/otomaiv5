@@ -20,3 +20,9 @@ pub const POS_FRIGOST:(i32,i32) = (-78,-41);
 pub const POS_SUFOKIA:(i32,i32) = (13,26);
 pub const POS_BRAKMAR:(i32,i32) = (-26,37);
 pub const POS_BONTA:(i32,i32) = (-31, -56);
+
+// Waiting time for zaapi
+pub const WAIT_ZAPPI_BONTA: u64 = 1500;
+pub const WAIT_ZAPPI_BRAKMAR: u64 = 2500;
+pub const WAIT_ZAPPI_SUFOKIA: u64 = 1500;
+pub const WAIT_ZAPPI_FRIGOST: u64 = 1500;
