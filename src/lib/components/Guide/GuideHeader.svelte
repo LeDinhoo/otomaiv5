@@ -21,11 +21,11 @@
 </script>
 
 <div
-  class="flex-none pt-2 pb-0 border-b border-stone-800 bg-stone-900 z-10 flex flex-col gap-2 select-none"
+  class="flex-none pt-2 pb-0 border-b border-stone-800  bg-stone-900 z-10 flex flex-col gap-2 select-none "
 >
-  <div class="flex justify-between items-end px-1">
+  <div class="flex justify-between items-end px-1 ">
     <div
-      class="flex items-center gap-1.5 text-orange-500/80 hover:text-orange-500 hover:cursor-pointer font-mono text-xs px-2 py-0.5 rounded"
+      class="flex items-center gap-1.5 text-orange-500/80 hover:text-orange-500 hover:cursor-pointer  font-mono text-xs px-2 py-0.5 rounded"
     >
       <MapPin class="w-3 h-3" />
       {#if currentStep && (currentStep.pos_x !== 0 || currentStep.pos_y !== 0)}
@@ -52,7 +52,7 @@
 
   <div class="w-full h-[2px] bg-stone-800 overflow-hidden mb-[-1px]">
     <div
-      class="h-full bg-[#d4b07b] transition-all duration-300 ease-out shadow-[0_0_10px_rgba(234,88,12,0.5)]"
+      class="h-full bg-[#8ad47b] transition-all duration-300 ease-out shadow-[0_0_10px_rgba(234,88,12,0.5)]"
       style="width: {progressPercentage}%"
     ></div>
   </div>

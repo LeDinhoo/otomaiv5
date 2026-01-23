@@ -108,7 +108,7 @@
   role="button"
   tabindex="0"
   onkeydown={() => {}}
-  class="flex-1 overflow-y-auto p-4 custom-scrollbar guide-content bg-stone-950/30 text-left cursor-auto"
+  class="flex-1 overflow-y-auto p-4 custom-scrollbar guide-content bg-stone-950/30 text-left cursor-auto "
 >
   {#if currentStep}
     <div class="text-stone-300">

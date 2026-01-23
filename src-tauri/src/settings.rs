@@ -9,22 +9,22 @@ use tauri::Manager;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AutomationSettings {
     // UI & Interface
-    pub ui_open_delay: u64,        // "H" Havre-sac (1200ms)
-    pub input_react_delay: u64,    // Clic input -> Écriture (100ms)
-    pub map_load_delay: u64,       // Chargement map après Zaap (2000ms)
-    
+    pub ui_open_delay: u64,     // "H" Havre-sac (1200ms)
+    pub input_react_delay: u64, // Clic input -> Écriture (100ms)
+    pub map_load_delay: u64,    // Chargement map après Zaap (2000ms)
+
     // Chat
-    pub chat_type_delay: u64,      // Vitesse écriture chat (50ms)
-    pub chat_validate_delay: u64,  // Touche Entrée après cmd (200ms)
+    pub chat_type_delay: u64,     // Vitesse écriture chat (50ms)
+    pub chat_validate_delay: u64, // Touche Entrée après cmd (200ms)
 
     // Gameplay
-    pub potion_anim_delay: u64,    // Animation Potion Bonta/Brak (4000ms)
+    pub potion_anim_delay: u64, // Animation Potion Bonta/Brak (4000ms)
 
     // Marche vers Zaapi (Tes constantes actuelles)
-    pub walk_bonta: u64,           // 1500ms
-    pub walk_brakmar: u64,         // 2500ms
-    pub walk_sufokia: u64,         // 1500ms
-    pub walk_frigost: u64,         // 1500ms
+    pub walk_bonta: u64,   // 1500ms
+    pub walk_brakmar: u64, // 2500ms
+    pub walk_sufokia: u64, // 1500ms
+    pub walk_frigost: u64, // 1500ms
 }
 
 // Valeurs par défaut (si le fichier config n'existe pas encore)

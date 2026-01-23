@@ -1,9 +1,9 @@
-pub mod key_listener;
-pub mod guide_parser;
-pub mod press_key;
-pub mod type_text;
-pub mod potions;
 pub mod automations;
 pub mod config;
 pub mod engine;
+pub mod guide_parser;
+pub mod key_listener;
+pub mod potions;
+pub mod press_key;
 pub mod text_utils;
+pub mod type_text;

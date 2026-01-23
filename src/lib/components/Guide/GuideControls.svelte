@@ -19,7 +19,7 @@
 </script>
 
 <div
-  class="flex-none p-2 border-t border-stone-800 bg-stone-900 flex justify-between items-center gap-4 select-none"
+  class="flex-none p-2 border-t border-stone-800 bg-[#373737]  flex justify-between items-center gap-4 select-none"
 >
   <Button
     variant="secondary"

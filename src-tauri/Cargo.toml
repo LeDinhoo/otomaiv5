@@ -32,6 +32,7 @@ opencv = "0.94"
 screenshots = "0.8"  
 image = "0.24"
 strsim = "0.11.0"
+tauri-plugin-notification = "2"
     
 
 [dependencies.windows]

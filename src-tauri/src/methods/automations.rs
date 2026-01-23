@@ -1,18 +1,17 @@
+use super::config::*;
+use super::engine::{click, execute, key, press, wait, write};
 use super::guide_parser::GuideResult;
 use super::potions;
+use crate::settings::AutomationSettings;
 use crate::window_manager::WindowManager;
 use std::thread;
-use std::time::Duration;
-use super::config::*;
-use super::engine::{execute, click, wait, write, key, press};
-use crate::settings::AutomationSettings; // <--- Import indispensable
+use std::time::Duration; // <--- Import indispensable
 
 pub fn execute_step_automation(
-    step: &GuideResult, 
-    window_title: &str, 
-    settings: &AutomationSettings // <--- Ajout du paramètre
+    step: &GuideResult,
+    window_title: &str,
+    settings: &AutomationSettings, // <--- Ajout du paramètre
 ) -> Result<String, String> {
-    
     let win_manager = WindowManager::new();
     win_manager.focus_by_title(window_title)?;
     println!("Bonjour tout le monde !");
@@ -55,7 +54,13 @@ pub fn execute_step_automation(
         }
         "zaap_zaapi" => {
             if let (Some(zaap_name), Some(zaapi_name)) = (&step.macro_arg, &step.macro_arg2) {
-                run_zaap_zaapi_sequence(zaap_name, zaapi_name, step.travel_cmd.as_ref(), window_title, settings)
+                run_zaap_zaapi_sequence(
+                    zaap_name,
+                    zaapi_name,
+                    step.travel_cmd.as_ref(),
+                    window_title,
+                    settings,
+                )
             } else {
                 Err("Il manque le nom du Zaap ou du Zaapi.".to_string())
             }
@@ -85,7 +90,10 @@ pub fn is_zaap_destination(cmd: &str, zaap_positions: &[(i32, i32)]) -> bool {
     let parts: Vec<&str> = clean_cmd.split(',').collect();
 
     if parts.len() == 2 {
-        if let (Ok(x), Ok(y)) = (parts[0].trim().parse::<i32>(), parts[1].trim().parse::<i32>()) {
+        if let (Ok(x), Ok(y)) = (
+            parts[0].trim().parse::<i32>(),
+            parts[1].trim().parse::<i32>(),
+        ) {
             return zaap_positions.contains(&(x, y));
         }
     }
@@ -95,7 +103,7 @@ pub fn is_zaap_destination(cmd: &str, zaap_positions: &[(i32, i32)]) -> bool {
 fn extract_coordinates(cmd: &str) -> Option<(i32, i32)> {
     let clean = cmd.trim().trim_start_matches("/travel ").trim();
     let parts: Vec<&str> = clean.split(',').collect();
-    
+
     if parts.len() == 2 {
         let x = parts[0].trim().parse::<i32>().ok()?;
         let y = parts[1].trim().parse::<i32>().ok()?;
@@ -109,7 +117,7 @@ pub fn get_name_of_closest_city_zaap(dest: (i32, i32)) -> String {
         ("Frigost", POS_FRIGOST),
         ("Sufokia", POS_SUFOKIA),
         ("Brakmar", POS_BRAKMAR),
-        ("Bonta",   POS_BONTA),
+        ("Bonta", POS_BONTA),
     ];
 
     let (dx, dy) = dest;
@@ -127,45 +135,51 @@ pub fn get_name_of_closest_city_zaap(dest: (i32, i32)) -> String {
 }
 
 // Fonction générique pour chat avec settings
-pub fn send_chat_command(command: &str, window_title: &str, settings: &AutomationSettings) -> Result<(), String> {
+pub fn send_chat_command(
+    command: &str,
+    window_title: &str,
+    settings: &AutomationSettings,
+) -> Result<(), String> {
     let sequence = vec![
         press("space", 1, 0),
-        wait(settings.chat_type_delay),     // Configurable
+        wait(settings.chat_type_delay), // Configurable
         write(command),
-        wait(settings.chat_type_delay),     // Configurable
+        wait(settings.chat_type_delay), // Configurable
         key("enter"),
         wait(settings.chat_validate_delay), // Configurable
-        key("enter")
+        key("enter"),
     ];
 
     execute(sequence, window_title)
 }
 
 pub fn travel_with_zaap(
-    zaap_name: &str, 
-    travel_cmd: Option<&String>, 
+    zaap_name: &str,
+    travel_cmd: Option<&String>,
     window_title: &str,
-    settings: &AutomationSettings // <--- Settings
+    settings: &AutomationSettings, // <--- Settings
 ) -> Result<String, String> {
-
     let candidates: Vec<String> = ZAAP_NAMES.iter().map(|s| s.to_string()).collect();
     let clean_name = crate::methods::text_utils::correct_text(zaap_name, &candidates);
 
     if clean_name != zaap_name {
-        println!("✨ Auto-Correction Zaap : '{}' -> '{}'", zaap_name, clean_name);
+        println!(
+            "✨ Auto-Correction Zaap : '{}' -> '{}'",
+            zaap_name, clean_name
+        );
     }
-    
+
     // Séquence Zaap utilisant les settings
     let mut sequence = vec![
-        key("h"),                
-        wait(settings.ui_open_delay),      // "H" delay
+        key("h"),
+        wait(settings.ui_open_delay), // "H" delay
         click(POS_ZAAP_INPUT),
-        wait(settings.input_react_delay),  // Input delay
-        write(&clean_name),        
-        key("enter"),            
-        wait(settings.map_load_delay),     // Map load delay
+        wait(settings.input_react_delay), // Input delay
+        write(&clean_name),
+        key("enter"),
+        wait(settings.map_load_delay), // Map load delay
     ];
-    
+
     // Ajout du Travel si nécessaire
     if let Some(cmd) = travel_cmd {
         if !is_zaap_destination(cmd, ZAAP_POSITIONS) {
@@ -176,14 +190,18 @@ pub fn travel_with_zaap(
                 wait(settings.chat_type_delay),
                 key("enter"),
                 wait(settings.chat_validate_delay),
-                key("enter")         
+                key("enter"),
             ]);
         }
     }
-    
+
     execute(sequence, window_title)?;
 
-    Ok(format!("Zaap '{}' effectué (Travel: {})", clean_name, travel_cmd.is_some()))
+    Ok(format!(
+        "Zaap '{}' effectué (Travel: {})",
+        clean_name,
+        travel_cmd.is_some()
+    ))
 }
 
 fn get_zaapi_category_pos(zaapi_name: &str) -> (i32, i32) {
@@ -198,17 +216,21 @@ fn get_zaapi_category_pos(zaapi_name: &str) -> (i32, i32) {
 }
 
 fn run_zaapi_sequence(
-    zaapi_name: &str, 
-    travel_cmd: Option<&String>, 
+    zaapi_name: &str,
+    travel_cmd: Option<&String>,
     window_title: &str,
-    settings: &AutomationSettings
+    settings: &AutomationSettings,
 ) -> Result<String, String> {
     let closest_city_name = {
         if let Some(cmd) = travel_cmd {
             if let Some(coords) = extract_coordinates(cmd) {
-                get_name_of_closest_city_zaap(coords) 
-            } else { "Bonta".to_string() }
-        } else { "Bonta".to_string() }
+                get_name_of_closest_city_zaap(coords)
+            } else {
+                "Bonta".to_string()
+            }
+        } else {
+            "Bonta".to_string()
+        }
     };
 
     let pos_zaapi = match closest_city_name.as_str() {
@@ -227,12 +249,12 @@ fn run_zaapi_sequence(
     };
 
     let mut sequence = vec![
-        key("h"),                
+        key("h"),
         wait(settings.ui_open_delay),
-        click(POS_ZAAP_INPUT), 
-        wait(settings.input_react_delay),  
-        write(closest_city_name.as_str()),        
-        key("enter"),            
+        click(POS_ZAAP_INPUT),
+        wait(settings.input_react_delay),
+        write(closest_city_name.as_str()),
+        key("enter"),
         wait(settings.map_load_delay),
         click(pos_zaapi),
         wait(zaapi_wait_time), // Temps de marche configurable
@@ -241,7 +263,8 @@ fn run_zaapi_sequence(
         click(POS_INPUT_TEXT_ZAAPI),
         write(zaapi_name),
         key("enter"),
-        wait(settings.chat_validate_delay) // Petit délai fin
+        wait(settings.map_load_delay),
+        wait(settings.chat_validate_delay), // Petit délai fin
     ];
 
     if let Some(cmd) = travel_cmd {
@@ -249,36 +272,42 @@ fn run_zaapi_sequence(
             sequence.extend(vec![
                 press("space", 1, 0),
                 wait(settings.chat_type_delay),
-                write(cmd),             
+                write(cmd),
                 wait(settings.chat_type_delay),
-                key("enter"),           
+                key("enter"),
                 wait(settings.chat_validate_delay),
-                key("enter")            
+                key("enter"),
             ]);
         }
     }
-    
+
     execute(sequence, window_title)?;
 
-    Ok(format!("Séquence Zaap '{}' + Zaapi '{}' terminée.", closest_city_name, zaapi_name))
+    Ok(format!(
+        "Séquence Zaap '{}' + Zaapi '{}' terminée.",
+        closest_city_name, zaapi_name
+    ))
 }
 
 fn run_zaap_zaapi_sequence(
-    zaap_name: &str, 
-    zaapi_name: &str, 
-    travel_cmd: Option<&String>, 
+    zaap_name: &str,
+    zaapi_name: &str,
+    travel_cmd: Option<&String>,
     window_title: &str,
-    settings: &AutomationSettings
+    settings: &AutomationSettings,
 ) -> Result<String, String> {
-
     // --- LOGIQUE IDENTIQUE, ADAPTÉE AUX SETTINGS ---
 
     let closest_city_name = {
         if let Some(cmd) = travel_cmd {
             if let Some(coords) = extract_coordinates(cmd) {
-                get_name_of_closest_city_zaap(coords) 
-            } else { "Bonta".to_string() }
-        } else { "Bonta".to_string() }
+                get_name_of_closest_city_zaap(coords)
+            } else {
+                "Bonta".to_string()
+            }
+        } else {
+            "Bonta".to_string()
+        }
     };
 
     let pos_zaapi = match closest_city_name.as_str() {
@@ -294,14 +323,14 @@ fn run_zaap_zaapi_sequence(
         "Frigost" => settings.walk_frigost,
         _ => settings.walk_bonta,
     };
-    
+
     let mut sequence = vec![
-        key("h"),                
+        key("h"),
         wait(settings.ui_open_delay),
-        click(POS_ZAAP_INPUT),  
+        click(POS_ZAAP_INPUT),
         wait(settings.input_react_delay),
-        write(zaap_name),        
-        key("enter"),            
+        write(zaap_name),
+        key("enter"),
         wait(settings.map_load_delay),
         click(pos_zaapi),
         wait(zaapi_wait_time),
@@ -310,7 +339,8 @@ fn run_zaap_zaapi_sequence(
         click(POS_INPUT_TEXT_ZAAPI),
         write(zaapi_name),
         key("enter"),
-        wait(settings.chat_validate_delay)
+        wait(settings.map_load_delay),
+        wait(settings.chat_validate_delay),
     ];
 
     if let Some(cmd) = travel_cmd {
@@ -318,16 +348,19 @@ fn run_zaap_zaapi_sequence(
             sequence.extend(vec![
                 press("space", 1, 0),
                 wait(settings.chat_type_delay),
-                write(cmd),             
+                write(cmd),
                 wait(settings.chat_type_delay),
-                key("enter"),           
+                key("enter"),
                 wait(settings.chat_validate_delay),
-                key("enter")            
+                key("enter"),
             ]);
         }
     }
 
     execute(sequence, window_title)?;
 
-    Ok(format!("Séquence Zaap '{}' + Zaapi '{}' terminée.", closest_city_name, zaapi_name))
+    Ok(format!(
+        "Séquence Zaap '{}' + Zaapi '{}' terminée.",
+        closest_city_name, zaapi_name
+    ))
 }

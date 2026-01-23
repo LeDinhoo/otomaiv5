@@ -1,7 +1,9 @@
 use regex::Regex;
 use std::{thread, time::Duration}; // Nécessaire pour le sleep
 use windows::Win32::Foundation::{BOOL, HWND, LPARAM};
-use windows::Win32::UI::WindowsAndMessaging::{EnumWindows, GetWindowTextW, GetWindowTextLengthW, IsWindowVisible};
+use windows::Win32::UI::WindowsAndMessaging::{
+    EnumWindows, GetWindowTextLengthW, GetWindowTextW, IsWindowVisible,
+};
 
 struct SearchContext {
     regex: Regex,
@@ -47,25 +49,38 @@ pub fn try_autorecovery(character_name: &str) -> Option<String> {
     for i in 1..=max_retries {
         // On tente une recherche standard
         if let Some(title) = find_specific_game_window(character_name) {
-            println!("✅ AUTO-RECOVERY: Succès à la tentative {}/{}", i, max_retries);
+            println!(
+                "✅ AUTO-RECOVERY: Succès à la tentative {}/{}",
+                i, max_retries
+            );
             return Some(title);
         }
 
-        println!("⚠️ Tentative {}/{} échouée. Nouvelle essai dans 2s...", i, max_retries);
+        println!(
+            "⚠️ Tentative {}/{} échouée. Nouvelle essai dans 2s...",
+            i, max_retries
+        );
         thread::sleep(delay);
     }
 
-    println!("❌ AUTO-RECOVERY: Échec total après {} tentatives.", max_retries);
+    println!(
+        "❌ AUTO-RECOVERY: Échec total après {} tentatives.",
+        max_retries
+    );
     None
 }
 
 unsafe extern "system" fn enumerate_callback(hwnd: HWND, lparam: LPARAM) -> BOOL {
     let context = &mut *(lparam.0 as *mut SearchContext);
 
-    if !IsWindowVisible(hwnd).as_bool() { return BOOL(1); }
+    if !IsWindowVisible(hwnd).as_bool() {
+        return BOOL(1);
+    }
 
     let length = GetWindowTextLengthW(hwnd);
-    if length == 0 { return BOOL(1); }
+    if length == 0 {
+        return BOOL(1);
+    }
 
     let mut buffer = vec![0u16; (length + 1) as usize];
     GetWindowTextW(hwnd, &mut buffer);
@@ -76,7 +91,7 @@ unsafe extern "system" fn enumerate_callback(hwnd: HWND, lparam: LPARAM) -> BOOL
     if context.regex.is_match(&window_title) {
         // println!("MATCH TROUVÉ : {}", window_title); // Décommenter si besoin de debug
         context.result = Some(window_title);
-        return BOOL(0); 
+        return BOOL(0);
     }
 
     BOOL(1)

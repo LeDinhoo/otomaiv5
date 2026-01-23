@@ -1,23 +1,23 @@
-use crate::mouse_manager::MouseManager; // Correction de l'import ici
 use super::press_key::press_key_multiple_times;
 use super::type_text::type_text_fast;
+use crate::mouse_manager::MouseManager; // Correction de l'import ici
 use std::thread;
 use std::time::Duration;
 
 // 1. Définition des briques Lego (Mise à jour)
 #[derive(Debug, Clone)]
 pub enum Action {
-    Click((i32, i32)),           // Position x, y
-    Wait(u64),                   // Temps en ms
-    Type(String),                // Texte à écrire
+    Click((i32, i32)), // Position x, y
+    Wait(u64),         // Temps en ms
+    Type(String),      // Texte à écrire
     // On stocke : Touche, Nombre de fois, Intervalle en ms
-    Press(String, u32, u64),     
+    Press(String, u32, u64),
 }
 
 // 2. L'Exécuteur
 pub fn execute(actions: Vec<Action>, window_title: &str) -> Result<(), String> {
     let mouse = MouseManager::new();
-    
+
     // Focus initial de la fenêtre (recommandé)
     // crate::window_manager::WindowManager::new().focus_by_title(window_title)?;
 

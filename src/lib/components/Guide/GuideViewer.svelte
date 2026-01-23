@@ -54,7 +54,7 @@
   function updateKeyListener() {
     invoke("set_key_listener", {
       active: listenKeys,
-      keys: listenKeys ? ["a", "d"] : [],
+      keys: listenKeys ? ["left", "right"] : [],
     });
   }
 
@@ -64,8 +64,8 @@
       unlistenHandle = await listen("key-detected", (event) => {
         if (!listenKeys) return;
         const key = event.payload as string;
-        if (key === "a") onPrev();
-        else if (key === "d") handleNextAction();
+        if (key === "left") onPrev();
+        else if (key === "right") handleNextAction();
       });
     }
   });
@@ -84,7 +84,7 @@
   }
 </script>
 
-<div class="flex flex-col h-full">
+<div class="flex flex-col h-full ">
   <GuideHeader bind:stepIndex totalSteps={guide.steps.length} {currentStep} />
 
   <GuideContent

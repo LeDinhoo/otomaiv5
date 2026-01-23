@@ -11,6 +11,33 @@
   import { loadOrDownloadGuide } from "$lib/services/guideService";
   import { saveProfile, loadProfile } from "$lib/services/profileService";
 
+  import {
+    isPermissionGranted,
+    requestPermission,
+    sendNotification,
+  } from "@tauri-apps/plugin-notification";
+  import Button from "$lib/components/ui/button/button.svelte";
+
+  async function notifier() {
+    // 1. Vérifier si on a la permission
+    let permissionGranted = await isPermissionGranted();
+
+    // 2. Si non, la demander
+    if (!permissionGranted) {
+      const permission = await requestPermission();
+      permissionGranted = permission === "granted";
+    }
+
+    // 3. Envoyer la notification
+    if (permissionGranted) {
+      sendNotification({
+        title: "Otomaiv5",
+        body: "Le script est terminé ou une action est requise !",
+        icon: "icons/32x32.png", // Optionnel
+      });
+    }
+  }
+
   let status = $state("Initialisation...");
   let windowTitle = $state("Mon Personnage");
   let usableTitle = $state("Mon Personnage");
@@ -135,17 +162,17 @@
 </script>
 
 <div
-  class="flex flex-col h-screen w-full bg-stone-900 border border-stone-700 rounded-md overflow-hidden text-stone-200"
+  class="flex flex-col h-screen w-full bg-[#373737] border border-stone-700 rounded-md overflow-hidden text-stone-200"
 >
-    <TitleBar
-      bind:windowTitle
-      bind:usableTitle
-      statusMessage={status}
-      onToggleLibrary={() =>
-        (currentView = currentView === "library" ? "dashboard" : "library")}
-      onToggleSettings={() =>
-        (currentView = currentView === "settings" ? "dashboard" : "settings")}
-    />
+  <TitleBar
+    bind:windowTitle
+    bind:usableTitle
+    statusMessage={status}
+    onToggleLibrary={() =>
+      (currentView = currentView === "library" ? "dashboard" : "library")}
+    onToggleSettings={() =>
+      (currentView = currentView === "settings" ? "dashboard" : "settings")}
+  />
   {#if currentView === "library"}
     <div class="flex-1 overflow-hidden">
       <LibraryPage

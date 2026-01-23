@@ -1,8 +1,8 @@
+use device_query::{DeviceQuery, DeviceState, Keycode};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
-use tauri::{AppHandle, Emitter, Manager};
-use device_query::{DeviceQuery, DeviceState, Keycode}; // Nouvelle librairie
+use tauri::{AppHandle, Emitter, Manager}; // Nouvelle librairie
 
 // Structure d'état
 pub struct KeyListenerState {
@@ -22,7 +22,7 @@ pub async fn set_key_listener(
     data.active = active;
     // On stocke les touches en minuscule pour comparer facilement
     data.target_keys = keys.iter().map(|k| k.to_lowercase()).collect();
-    
+
     Ok(if active {
         format!("Écoute (Polling) activée pour : {:?}", data.target_keys)
     } else {
@@ -55,10 +55,10 @@ pub fn init_background_listener(app: &AppHandle) {
                 for key in &current_keys {
                     if !previous_keys.contains(key) {
                         let key_string = key.to_string().to_lowercase();
-                        
+
                         // Petite astuce : device_query retourne "Key1" pour "1", "A" pour "a".
                         // On nettoie un peu si nécessaire, ou on compare brut.
-                        
+
                         if targets.contains(&key_string) {
                             println!("✅ Touche détectée (Polling) : {}", key_string);
                             let _ = app_handle.emit("key-detected", key_string);

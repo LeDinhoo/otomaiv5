@@ -30,12 +30,18 @@ pub fn correct_text(input: &str, candidates: &[String]) -> String {
 
     if min_distance <= MAX_TOLERANCE {
         if let Some(valid_string) = best_candidate {
-            println!("✨ Correction : '{}' -> '{}' (Dist: {})", input, valid_string, min_distance);
+            println!(
+                "✨ Correction : '{}' -> '{}' (Dist: {})",
+                input, valid_string, min_distance
+            );
             return valid_string.clone();
         }
     }
 
     // Si on est trop loin, on renvoie l'original
-    println!("⚠️ Pas de correspondance proche pour '{}', on garde l'original.", input);
+    println!(
+        "⚠️ Pas de correspondance proche pour '{}', on garde l'original.",
+        input
+    );
     input.to_string()
 }

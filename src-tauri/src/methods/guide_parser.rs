@@ -6,7 +6,7 @@ use regex::Regex;
 pub struct GuideResult {
     pub position: Option<(i32, i32)>,
     pub travel_cmd: Option<String>,
-    pub macro_type: String, 
+    pub macro_type: String,
     pub macro_arg: Option<String>,
     pub macro_arg2: Option<String>,
 }
@@ -31,7 +31,7 @@ impl GuideParser {
     // --- CONSTANTES ---
     const TARGET_COLORS: &'static [&'static str] = &["rgb(98, 172, 255)", "#62ACFF", "#62acff"];
     const BLACKLIST_CONTEXT: &'static [&'static str] = &["départ", "depuis", "partir", "commencer"];
-    
+
     // Positions strictes des Milices (Points d'arrivée des potions)
     pub const POS_MILICE_BONTA: (i32, i32) = (-32, -57);
     pub const POS_MILICE_BRAKMAR: (i32, i32) = (-25, 33);
@@ -52,7 +52,7 @@ impl GuideParser {
             if let Some(potion_name) = Self::get_special_potion(pos) {
                 result.travel_cmd = Some(potion_name.to_string());
                 result.macro_type = "potion_direct".to_string();
-                
+
                 Self::print_debug_table(&result, &clean_text);
                 return result;
             }
@@ -68,8 +68,8 @@ impl GuideParser {
         if let (Some(zaap), Some(zaapi)) = (&final_zaap, &final_zaapi) {
             // CAS A : Zaap + Zaapi
             result.macro_type = "zaap_zaapi".to_string();
-            result.macro_arg = Some(zaap.clone());   
-            result.macro_arg2 = Some(zaapi.clone()); 
+            result.macro_arg = Some(zaap.clone());
+            result.macro_arg2 = Some(zaapi.clone());
         } else if let Some(zaapi) = final_zaapi {
             // CAS B : Zaapi seul
             result.macro_type = "zaapi".to_string();
@@ -122,12 +122,17 @@ impl GuideParser {
             let full_match = cap.get(0).unwrap();
             let start_pos = full_match.start();
 
-            if !Self::TARGET_COLORS.iter().any(|c| style.contains(&c.to_lowercase())) {
+            if !Self::TARGET_COLORS
+                .iter()
+                .any(|c| style.contains(&c.to_lowercase()))
+            {
                 continue;
             }
 
             let clean_text = strip_tags.replace_all(raw_content, "").trim().to_string();
-            if clean_text.is_empty() { continue; }
+            if clean_text.is_empty() {
+                continue;
+            }
 
             let mut start_ctx = start_pos.saturating_sub(50);
             while !html.is_char_boundary(start_ctx) {
@@ -135,7 +140,10 @@ impl GuideParser {
             }
 
             let context = html[start_ctx..start_pos].to_lowercase();
-            items.push(BlueItem { text: clean_text, context });
+            items.push(BlueItem {
+                text: clean_text,
+                context,
+            });
         }
         items
     }
@@ -161,7 +169,10 @@ impl GuideParser {
             };
 
             if let Some(ctype) = cmd_type {
-                if Self::BLACKLIST_CONTEXT.iter().any(|bad| item.context.contains(bad)) {
+                if Self::BLACKLIST_CONTEXT
+                    .iter()
+                    .any(|bad| item.context.contains(bad))
+                {
                     continue;
                 }
 
@@ -189,28 +200,32 @@ impl GuideParser {
         println!("\n┌──────────────────────────────────────────────────────────────┐");
         println!("│ GUIDE PARSER RESULT (STRICT MODE)                            │");
         println!("├──────────────────────┬───────────────────────────────────────┤");
-        
+
         let pos_str = match res.position {
             Some((x, y)) => format!("[{}, {}]", x, y),
             None => "None".to_string(),
         };
         println!("│ {:<20} │ {:<37} │", "Position", pos_str);
         println!("│ {:<20} │ {:<37} │", "Macro Type", res.macro_type);
-        
+
         let cmd = res.travel_cmd.as_deref().unwrap_or("-");
         let cmd_display = if cmd.len() > 35 { &cmd[0..35] } else { cmd };
         println!("│ {:<20} │ {:<37} │", "Travel Cmd", cmd_display);
 
         if let Some(arg) = &res.macro_arg {
-             println!("│ {:<20} │ {:<37} │", "Macro Arg 1", arg);
+            println!("│ {:<20} │ {:<37} │", "Macro Arg 1", arg);
         }
         if let Some(arg) = &res.macro_arg2 {
-             println!("│ {:<20} │ {:<37} │", "Macro Arg 2", arg);
+            println!("│ {:<20} │ {:<37} │", "Macro Arg 2", arg);
         }
 
         println!("├──────────────────────┴───────────────────────────────────────┤");
         let excerpt: String = raw_text.chars().take(52).collect();
-        let display_text = if raw_text.chars().count() > 52 { format!("{}...", excerpt) } else { excerpt };
+        let display_text = if raw_text.chars().count() > 52 {
+            format!("{}...", excerpt)
+        } else {
+            excerpt
+        };
         println!("│ Text: {:<54} │", display_text);
         println!("└──────────────────────────────────────────────────────────────┘\n");
     }
