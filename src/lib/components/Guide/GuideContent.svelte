@@ -6,6 +6,7 @@
     guideId,
     checkboxState = $bindable(),
     onNavigate,
+    fullTitle = $bindable(),
   } = $props();
 
   let contentDiv: HTMLElement | undefined = $state();
@@ -32,14 +33,18 @@
       const rawText = target.textContent || "";
       const coords = rawText.replace(/[\[\]]/g, "").trim();
 
+      console.log("Coordonnées cliquées :", coords);
+      console.log("Usable Title :", fullTitle);
+
       if (coords) {
         console.log(`Déplacement vers : ${coords}`);
         // Appel à ta commande Rust
-        invoke("send_chat_command", { command: `/travel ${coords}` }).catch(
-          (err) => {
-            console.error("Erreur travel:", err);
-          },
-        );
+        invoke("send_chat_command", {
+          command: `/travel ${coords}`,
+          windowTitle: fullTitle,
+        }).catch((err) => {
+          console.error("Erreur travel:", err);
+        });
       }
       return;
     }
@@ -108,7 +113,7 @@
   role="button"
   tabindex="0"
   onkeydown={() => {}}
-  class="flex-1 overflow-y-auto p-4 custom-scrollbar guide-content bg-stone-950/30 text-left cursor-auto "
+  class="flex-1 overflow-y-auto p-4 custom-scrollbar guide-content bg-stone-950/30 text-left cursor-auto"
 >
   {#if currentStep}
     <div class="text-stone-300">

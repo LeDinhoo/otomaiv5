@@ -108,12 +108,3 @@
     </div>
   {/if}
 </div>
-
-<style>
-  :global(html),
-  :global(body) {
-    background: transparent !important;
-    /* Empêche la sélection de texte accidentelle quand on clique vite */
-    user-select: none;
-  }
-</style>

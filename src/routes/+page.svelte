@@ -58,13 +58,14 @@
   let openGuides = $state({});
   let guideProgress = $state({});
   let checkboxStates = $state({});
+  let fullTitle = $state("");
 
   let syncTimeout: number | undefined;
 
   async function performWindowSync(nameToFind: string) {
     if (!nameToFind) return;
     try {
-      const fullTitle = await invoke("sync_window_title", {
+      fullTitle = await invoke("sync_window_title", {
         characterName: nameToFind,
       });
       windowTitle = fullTitle as string;
@@ -168,16 +169,14 @@
 </script>
 
 <div
-  class="flex flex-col h-screen w-full bg-stone-800 border border-stone-700 rounded-md overflow-hidden text-stone-200"
+  class="flex flex-col h-screen w-full bg-stone-800 border border-stone-700 text-stone-200"
 >
   <!-- <Button onclick={ouvrirNotification} class="m-4">
     Lancer le test de notification
   </Button> -->
   <TitleBar
     {ouvrirNotification}
-    bind:windowTitle
     bind:usableTitle
-    statusMessage={status}
     onToggleLibrary={() =>
       (currentView = currentView === "library" ? "dashboard" : "library")}
     onToggleSettings={() =>
@@ -204,6 +203,7 @@
       bind:guideProgress
       bind:checkboxStates
       bind:usableTitle
+      bind:fullTitle
       onCloseTab={closeTab}
       onOpenGuide={handleOpenGuide}
       onNavigate={handleNavigate}

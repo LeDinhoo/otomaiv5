@@ -14,12 +14,12 @@
     checkboxState = $bindable({}),
     onPrev,
     onNext,
-    usableTitle = $bindable(""),
+    fullTitle = $bindable(),
     onNavigate,
   } = $props();
 
   // --- États Logiques ---
-  let listenKeys = $state(true);
+  let listenKeys = $state(false);
   let autoPilot = $state(false);
   let unlistenHandle: (() => void) | undefined;
   let currentAnalysis = $state(null);
@@ -40,7 +40,7 @@
     if (autoPilot && currentAnalysis) {
       invoke("execute_step_automation", {
         step: currentAnalysis,
-        windowTitle: usableTitle,
+        windowTitle: fullTitle,
       }).catch((e) => console.error("Erreur Auto-Pilot:", e));
     }
     onNext();
@@ -92,6 +92,7 @@
     guideId={guide.id}
     bind:checkboxState={checkboxState[stepIndex]}
     onNavigate={handleInternalNavigate}
+    {fullTitle}
   />
 
   <GuideControls

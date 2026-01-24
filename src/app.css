@@ -164,11 +164,15 @@
   --color-sidebar-ring: var(--sidebar-ring);
 }
 
+body {
+  background-color: transparent !important; /* Laisse voir la transparence Tauri */
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply text-foreground;
   }
 }

@@ -80,6 +80,18 @@ impl GuideParser {
             result.macro_arg = Some(zaap);
         }
 
+        // 4. Analyse Skis (Nouveau)
+        // Vérifie la présence des 4 types de skis dans le texte nettoyé
+        if clean_text.contains("Paire de skis souples jetables") {
+            result.macro_type = "skis_souples".to_string();
+        } else if clean_text.contains("Paire de skis rustiques jetables") {
+            result.macro_type = "skis_rustiques".to_string();
+        } else if clean_text.contains("Paire de skis sombres jetables") {
+            result.macro_type = "skis_sombres".to_string();
+        } else if clean_text.contains("Paire de skis glissants jetables") {
+            result.macro_type = "skis_glissants".to_string();
+        }
+
         Self::print_debug_table(&result, &clean_text);
         result
     }

@@ -12,6 +12,7 @@
     guideProgress = $bindable(),
     checkboxStates = $bindable(),
     usableTitle = $bindable(),
+    fullTitle = $bindable(),
     onCloseTab,
     onOpenGuide,
     onNavigate,
@@ -54,7 +55,7 @@
           onPrev={() => onPrevStep(activeTab)}
           onNext={() => onNextStep(activeTab, guide.steps.length)}
           {onNavigate}
-          bind:usableTitle
+          bind:fullTitle
         />
       {/if}
     {/if}

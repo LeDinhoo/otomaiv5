@@ -27,13 +27,50 @@ fn greet(name: &str) -> String {
     format!("Hello, {}! You've been greeted from Rust!", name)
 }
 
+// #[tauri::command]
+// fn send_chat_command(command: String, window_title: String) -> Result<String, String> {
+//     let manager = window_manager::WindowManager::new();
+//     manager.focus_by_title(&window_title)?;
+//     methods::type_text::type_text_fast(&command)?;
+//     methods::press_key::press_key_multiple_times("enter", 1, Some(100))?;
+//     Ok("Commande envoyée".to_string())
+// }
+
 #[tauri::command]
-fn send_chat_command(command: String, window_title: String) -> Result<String, String> {
-    let manager = window_manager::WindowManager::new();
-    manager.focus_by_title(&window_title)?;
-    methods::type_text::type_text_fast(&command)?;
-    methods::press_key::press_key_multiple_times("enter", 1, Some(100))?;
-    Ok("Commande envoyée".to_string())
+fn send_chat_command(
+    command: String, 
+    window_title: String, 
+    state: tauri::State<'_, SettingsState>
+) -> Result<String, String> {
+    // 1. Log à l'entrée de la fonction
+    println!("🚀 [Rust] send_chat_command appelée !");
+    println!("   - Commande : {}", command);
+    println!("   - Fenêtre : {}", window_title);
+
+    let win_manager = WindowManager::new();
+    win_manager.focus_by_title(&window_title)?;
+
+    // 2. Récupération des settings
+    let settings = match state.0.lock() {
+        Ok(s) => s.clone(),
+        Err(_) => {
+            println!("❌ [Rust] CRASH : Impossible de verrouiller les settings (Mutex Poisoned)");
+            return Err("Erreur interne settings".to_string());
+        }
+    };
+    println!("⚙️ [Rust] Settings chargés. Délai frappe : {}ms", settings.chat_type_delay);
+
+    // 3. Appel de l'automation avec gestion d'erreur explicite
+    match methods::automations::send_chat_command(&command, &window_title, &settings) {
+        Ok(_) => {
+            println!("✅ [Rust] Automation terminée avec SUCCÈS.");
+            Ok("Commande envoyée".to_string())
+        },
+        Err(e) => {
+            println!("❌ [Rust] Automation ÉCHOUÉE : {}", e);
+            Err(e.to_string()) // Renvoie l'erreur au JS (promesse rejetée)
+        }
+    }
 }
 
 #[tauri::command]
