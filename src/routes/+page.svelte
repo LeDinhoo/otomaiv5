@@ -7,35 +7,41 @@
   import LibraryPage from "$lib/components/Settings/LibraryPage.svelte";
   import SettingsPage from "$lib/components/Settings/SettingsPage.svelte"; // <--- Assure-toi du chemin
   import DashboardView from "$lib/components/Dashboard/DashboardView.svelte";
+  import { currentMonitor } from "@tauri-apps/api/window";
 
   import { loadOrDownloadGuide } from "$lib/services/guideService";
   import { saveProfile, loadProfile } from "$lib/services/profileService";
 
-  import {
-    isPermissionGranted,
-    requestPermission,
-    sendNotification,
-  } from "@tauri-apps/plugin-notification";
   import Button from "$lib/components/ui/button/button.svelte";
+  import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 
-  async function notifier() {
-    // 1. Vérifier si on a la permission
-    let permissionGranted = await isPermissionGranted();
+  async function ouvrirNotification() {
+    // 1. Configuration de la taille
+    const width = 400;
+    const height = 150;
 
-    // 2. Si non, la demander
-    if (!permissionGranted) {
-      const permission = await requestPermission();
-      permissionGranted = permission === "granted";
-    }
+    // 2. Calcul de la position (Bas-Droite)
+    let x = 0;
+    let y = 0;
 
-    // 3. Envoyer la notification
-    if (permissionGranted) {
-      sendNotification({
-        title: "Otomaiv5",
-        body: "Le script est terminé ou une action est requise !",
-        icon: "icons/32x32.png", // Optionnel
-      });
-    }
+    // 3. Création de la fenêtre
+    const label = "notif-" + Date.now();
+    new WebviewWindow(label, {
+      url: "/coucou",
+      title: "Notification",
+      width: 400,
+      height: 150,
+      x: x,
+      y: y,
+
+      transparent: true,
+      decorations: false,
+      shadow: false,
+      alwaysOnTop: true,
+      skipTaskbar: true,
+      resizable: false,
+      focus: false,
+    });
   }
 
   let status = $state("Initialisation...");
@@ -162,8 +168,11 @@
 </script>
 
 <div
-  class="flex flex-col h-screen w-full bg-[#373737] border border-stone-700 rounded-md overflow-hidden text-stone-200"
+  class="flex flex-col h-screen w-full bg-stone-800 border border-stone-700 rounded-md overflow-hidden text-stone-200"
 >
+  <!-- <Button onclick={ouvrirNotification} class="m-4">
+    Lancer le test de notification
+  </Button> -->
   <TitleBar
     bind:windowTitle
     bind:usableTitle

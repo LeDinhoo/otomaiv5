@@ -117,6 +117,16 @@
     >
       <Settings class="w-4 h-4" />
     </Button>
+
+    <Button
+      variant="ghost"
+      size="icon"
+      class="h-6 w-6 hover:bg-stone-700"
+      title="Archimonstre"
+      onmousedown={(e) => e.stopPropagation()}
+    >
+      <img src="archmonster.png" alt="Archimonstre" class="w-5 h-5 -translate-y-[1.5px] hover:opacity-100 opacity-60" />
+    </Button>
   </div>
 
   <div
@@ -135,32 +145,38 @@
         : 'pointer-events-auto cursor-text hover:bg-stone-700/30'}"
       spellcheck="false"
       placeholder="Personnage..."
-      onkeydown={(e) => e.key === 'Enter' && handleLockAction()}
+      onkeydown={(e) => e.key === "Enter" && handleLockAction()}
     />
 
     <button
       onclick={handleLockAction}
       class="p-1.5 rounded transition-all relative z-30 flex items-center justify-center
-      {syncState === 'recovering' ? 'cursor-wait' : 'cursor-pointer hover:bg-stone-700'}"
+      {syncState === 'recovering'
+        ? 'cursor-wait'
+        : 'cursor-pointer hover:bg-stone-700'}"
       title={isLocked
-        ? syncState === "lost" ? "Perdu ! Cliquer pour relancer" : "Déverrouiller"
+        ? syncState === "lost"
+          ? "Perdu ! Cliquer pour relancer"
+          : "Déverrouiller"
         : "Verrouiller et Synchroniser"}
     >
       {#if !isLocked}
-        <LockOpen class="w-3.5 h-3.5 text-yellow-500/80 group-hover:text-yellow-400" />
-      
+        <LockOpen
+          class="w-3.5 h-3.5 text-yellow-500/80 group-hover:text-yellow-400"
+        />
       {:else if syncState === "recovering"}
         <Loader2 class="w-3.5 h-3.5 text-orange-500 animate-spin" />
-
       {:else if syncState === "lost"}
         <div class="relative">
-             <WifiOff class="w-3.5 h-3.5 text-red-500 animate-pulse" />
-             <span class="absolute -top-1 -right-1 flex h-2 w-2">
-                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                <span class="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
-              </span>
+          <WifiOff class="w-3.5 h-3.5 text-red-500 animate-pulse" />
+          <span class="absolute -top-1 -right-1 flex h-2 w-2">
+            <span
+              class="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"
+            ></span>
+            <span class="relative inline-flex rounded-full h-2 w-2 bg-red-500"
+            ></span>
+          </span>
         </div>
-
       {:else}
         <Lock class="w-3.5 h-3.5 text-green-500" />
       {/if}
