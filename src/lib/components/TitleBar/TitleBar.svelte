@@ -17,6 +17,7 @@
 
   let {
     usableTitle = $bindable(),
+    ouvrirNotification,
     onToggleLibrary,
     onToggleSettings,
   } = $props();
@@ -95,11 +96,11 @@
 >
   <div class="absolute inset-0" data-tauri-drag-region></div>
 
-  <div class="flex items-center z-40 pl-2">
+  <div class="flex items-center z-40 pl-2 gap-1">
     <Button
       variant="ghost"
       size="icon"
-      class="h-6 w-6 text-stone-500 hover:text-stone-200 hover:bg-stone-700 mr-1"
+      class="h-6 w-6 text-stone-500 hover:text-stone-200 hover:bg-stone-700"
       onclick={onToggleLibrary}
       title="Bibliothèque de guides"
       onmousedown={(e) => e.stopPropagation()}
@@ -123,9 +124,14 @@
       size="icon"
       class="h-6 w-6 hover:bg-stone-700"
       title="Archimonstre"
+      onclick={() => ouvrirNotification()}
       onmousedown={(e) => e.stopPropagation()}
     >
-      <img src="archmonster.png" alt="Archimonstre" class="w-5 h-5 -translate-y-[1.5px] hover:opacity-100 opacity-60" />
+      <img
+        src="archmonster.png"
+        alt="Archimonstre"
+        class="w-5 h-5 -translate-y-[1.5px] hover:opacity-100 opacity-60"
+      />
     </Button>
   </div>
 

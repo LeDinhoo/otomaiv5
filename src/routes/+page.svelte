@@ -174,6 +174,7 @@
     Lancer le test de notification
   </Button> -->
   <TitleBar
+    {ouvrirNotification}
     bind:windowTitle
     bind:usableTitle
     statusMessage={status}
