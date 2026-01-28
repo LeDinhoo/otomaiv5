@@ -21,7 +21,8 @@
         "transparent": true,
         "alwaysOnTop": true,
         "minWidth": 330,
-        "minHeight": 500
+        "minHeight": 500,
+        "dragDropEnabled": false
       }
     ],
     "security": {

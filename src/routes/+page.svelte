@@ -202,7 +202,7 @@
     </div>
   {:else}
     <DashboardView
-      {tabs}
+      bind:tabs={tabs}
       {openGuides}
       bind:activeTab
       bind:guideProgress

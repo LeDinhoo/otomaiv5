@@ -3,19 +3,25 @@
 </script>
 
 <div
-  class="flex items-center bg-stone-900 border-b border-stone-800 h-10 w-full overflow-hidden"
+  class="flex items-center bg-stone-900 border-b border-stone-800 h-10 w-full"
 >
-  <div class="flex h-full w-full items-center">
+  <div class="flex h-full w-full items-center overflow-x-auto custom-scrollbar">
     {@render children()}
   </div>
 </div>
 
 <style>
-  .no-scrollbar::-webkit-scrollbar {
-    display: none;
+  .custom-scrollbar::-webkit-scrollbar {
+    height: 4px; 
   }
-  .no-scrollbar {
-    -ms-overflow-style: none;
-    scrollbar-width: none;
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: #44403c;
+    border-radius: 4px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: #57534e;
   }
 </style>
