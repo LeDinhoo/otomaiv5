@@ -169,7 +169,7 @@
 </script>
 
 <div
-  class="flex flex-col h-screen w-full bg-stone-800 border border-stone-700 text-stone-200"
+  class="flex flex-col h-screen w-full rounded-lg overflow-hidden bg-stone-800 border border-stone-700 text-stone-200"
 >
   <!-- <Button onclick={ouvrirNotification} class="m-4">
     Lancer le test de notification

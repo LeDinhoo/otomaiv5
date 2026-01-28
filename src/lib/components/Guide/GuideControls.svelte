@@ -19,15 +19,15 @@
 </script>
 
 <div
-  class="flex-none p-2 border-t border-stone-800 bg-stone-800  flex justify-between items-center gap-4 select-none"
+  class="flex-none p-1 border-t border-stone-700 bg-stone-800  flex justify-between items-center gap-2 select-none"
 >
   <Button
     variant="secondary"
     onclick={onPrev}
     disabled={!canGoPrev}
-    class="w-28 select-none text-stone-300 bg-[#615d59] hover:bg-[#968d84]"
+    class="select-none size-8 text-stone-300 bg-[#615d59] hover:bg-[#968d84]"
   >
-    <ChevronLeft class="w-4 h-4 mr-1" /> Précédent
+    <ChevronLeft class="w-4 h-4" />
   </Button>
 
   <div class="flex items-center overflow-hidden rounded-sm h-full">
@@ -66,8 +66,7 @@
     variant="default"
     onclick={onNext}
     disabled={!canGoNext}
-    class="w-28 bg-[#a4713e] hover:bg-[#b8976f] select-none"
-  >
-    Suivant <ChevronRight class="w-4 h-4 ml-1" />
+    class=" bg-[#a4713e] size-8 hover:bg-[#b8976f] select-none"
+  ><ChevronRight class="w-4 h-4" />
   </Button>
 </div>
