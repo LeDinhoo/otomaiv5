@@ -12,14 +12,16 @@
   "app": {
     "windows": [
       {
-        "title": "otomaiv5",
+        "title": "Otomaï",
         "decorations": false,
         "resizable": true,
         "width": 400,
         "height": 900,
         "shadow": false,
         "transparent": true,
-        "alwaysOnTop": true
+        "alwaysOnTop": true,
+        "minWidth": 330,
+        "minHeight": 500
       }
     ],
     "security": {

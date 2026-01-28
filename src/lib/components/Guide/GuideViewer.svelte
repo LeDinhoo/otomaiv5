@@ -77,14 +77,17 @@
 
   function handleInternalNavigate(targetId: string, targetIndex: number) {
     if (targetId == guide.id) {
-      stepIndex = targetIndex;
+      // On ne force l'étape que si c'est un index précis (>= 0)
+      if (targetIndex !== -1) {
+        stepIndex = targetIndex;
+      }
     } else if (onNavigate) {
       onNavigate(targetId, targetIndex);
     }
   }
 </script>
 
-<div class="flex flex-col h-full ">
+<div class="flex flex-col h-full">
   <GuideHeader bind:stepIndex totalSteps={guide.steps.length} {currentStep} />
 
   <GuideContent

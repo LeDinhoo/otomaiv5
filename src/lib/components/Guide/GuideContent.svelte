@@ -50,20 +50,28 @@
     }
 
     const stepLink = target.closest('[data-type="guide-step"], .guide-step');
-
     if (stepLink && onNavigate) {
       event.preventDefault();
       const targetGuideId = stepLink.getAttribute("guideid");
-      const targetStepNum = parseInt(
-        stepLink.getAttribute("stepnumber") || "1",
-      );
-      const targetIndex = Math.max(0, targetStepNum - 1);
 
-      if (targetGuideId === "0" || targetGuideId == guideId) {
-        onNavigate(guideId, targetIndex);
-      } else {
-        onNavigate(targetGuideId, targetIndex);
+      const stepIdAttr = stepLink.getAttribute("stepid");
+      const stepNumAttr = stepLink.getAttribute("stepnumber");
+
+      let targetIndex = -1;
+
+      if (stepIdAttr && stepIdAttr !== "0" && stepNumAttr) {
+        const parsedStep = parseInt(stepNumAttr);
+        if (!isNaN(parsedStep)) {
+          targetIndex = Math.max(0, parsedStep - 1);
+        }
       }
+
+      const finalGuideId =
+        targetGuideId === "0" || targetGuideId == guideId
+          ? guideId
+          : targetGuideId;
+
+      onNavigate(finalGuideId, targetIndex);
     }
   }
 

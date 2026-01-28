@@ -160,11 +160,16 @@
     targetStepIndex: number,
   ) {
     const tabId = `guide_${targetGuideId}`;
+
     if (!tabs.find((t) => t.id === tabId)) await handleOpenGuide(targetGuideId);
+
     activeTab = tabId;
-    setTimeout(() => {
-      guideProgress[tabId] = targetStepIndex;
-    }, 50);
+
+    if (targetStepIndex !== -1) {
+      setTimeout(() => {
+        guideProgress[tabId] = targetStepIndex;
+      }, 50);
+    }
   }
 </script>
 
