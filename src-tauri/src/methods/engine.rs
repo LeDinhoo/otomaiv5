@@ -1,24 +1,33 @@
 use super::press_key::press_key_multiple_times;
 use super::type_text::type_text_fast;
-use crate::mouse_manager::MouseManager; // Correction de l'import ici
+use crate::mouse_manager::MouseManager;
 use std::thread;
 use std::time::Duration;
+use super::vision;
 
-// 1. Définition des briques Lego (Mise à jour)
+// 👇 Nouveaux imports nécessaires pour Tauri v2
+use tauri::{AppHandle, Manager}; 
+use tauri::path::BaseDirectory; 
+
+// 1. Définition des briques Lego (Mise à jour pour Tauri Resources)
 #[derive(Debug, Clone)]
 pub enum Action {
-    Click((i32, i32)), // Position x, y
-    Wait(u64),         // Temps en ms
-    Type(String),      // Texte à écrire
-    // On stocke : Touche, Nombre de fois, Intervalle en ms
+    Click((i32, i32)), 
+    Wait(u64),         
+    Type(String),      
     Press(String, u32, u64),
+    
+    // 👇 MODIFICATION : On stocke le chemin relatif (String)
+    // plus de 'static [u8] car on lit le fichier au runtime
+    WaitForImage { path: String },
 }
 
 // 2. L'Exécuteur
-pub fn execute(actions: Vec<Action>, window_title: &str) -> Result<(), String> {
+// 👇 MODIFICATION : On ajoute app_handle en 1er argument
+pub fn execute(app_handle: &AppHandle, actions: Vec<Action>, window_title: &str) -> Result<(), String> {
     let mouse = MouseManager::new();
 
-    // Focus initial de la fenêtre (recommandé)
+    // Focus initial (optionnel)
     // crate::window_manager::WindowManager::new().focus_by_title(window_title)?;
 
     for action in actions {
@@ -32,13 +41,40 @@ pub fn execute(actions: Vec<Action>, window_title: &str) -> Result<(), String> {
             Action::Type(text) => {
                 type_text_fast(&text)?;
             }
-            // Mise à jour de la logique Press
             Action::Press(k, count, interval) => {
                 press_key_multiple_times(&k, count, Some(interval))?;
             }
+            
+            Action::WaitForImage { path } => {
+                println!("👁️ Moteur: Recherche du fichier ressource '{}'", path);
+                
+                // 1. Résolution via Tauri
+                let resource_path = app_handle.path()
+                    .resolve(&path, BaseDirectory::Resource)
+                    .map_err(|e| format!("Impossible de résoudre le chemin ressource '{}': {}", path, e))?;
+
+                // 2. Conversion en String
+                let path_str = resource_path.to_str()
+                    .ok_or_else(|| "Erreur de conversion du chemin en String".to_string())?;
+
+                // 👇👇👇 FIX CRITIQUE POUR OPENCV / WINDOWS 👇👇👇
+                // On retire le préfixe "\\?\" si présent, sinon OpenCV ne trouve pas le fichier.
+                let fixed_path = if cfg!(windows) {
+                    path_str.trim_start_matches("\\\\?\\")
+                } else {
+                    path_str
+                };
+
+                println!("📂 Chemin absolu corrigé : {}", fixed_path);
+
+                // 3. Appel Vision
+                vision::wait_for_image(fixed_path)
+                    .map_err(|e| format!("Echec vision : {}", e))?;
+            },
         }
-        // Petit délai de sécurité entre les briques (très important pour Dofus)
-        thread::sleep(Duration::from_millis(100));
+        
+        // Petit délai de sécurité entre les briques
+        thread::sleep(Duration::from_millis(50));
     }
     Ok(())
 }
@@ -57,14 +93,18 @@ pub fn write(text: &str) -> Action {
     Action::Type(text.to_string())
 }
 
-// Helper simple : Appuie 1 fois, intervalle par défaut (100ms)
-// Utilisation : key("enter")
 pub fn key(k: &str) -> Action {
     Action::Press(k.to_string(), 1, 100)
 }
 
-// Helper avancé : Appuie X fois avec Y intervalle
-// Utilisation : press("space", 5, 300) -> Spamme Espace 5 fois toutes les 300ms
 pub fn press(k: &str, count: u32, interval: u64) -> Action {
     Action::Press(k.to_string(), count, interval)
+}
+
+// 👇 MODIFICATION DU HELPER
+// On prend juste le chemin relatif (ex: "ui/zaap.png")
+pub fn wait_image(path: &str) -> Action {
+    Action::WaitForImage {
+        path: path.to_string(),
+    }
 }

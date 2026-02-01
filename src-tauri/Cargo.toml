@@ -28,11 +28,13 @@ regex = "1.10"
 tauri-plugin-http = "2"
 tauri-plugin-fs = "2"
 rdev = "0.5"
-opencv = "0.94"
 screenshots = "0.8"  
 image = "0.24"
 strsim = "0.11.0"
 tauri-plugin-notification = "2"
+xcap = "0.0.9"
+opencv = "0.94"
+anyhow = "1.0"
     
 
 [dependencies.windows]
@@ -44,3 +46,10 @@ features = [
     "Win32_Graphics_Gdi",
     "Win32_UI_Input_KeyboardAndMouse",
 ]
+
+[profile.release]
+panic = "abort"     # En cas de crash, on coupe tout (plus léger)
+codegen-units = 1   # Compile plus lentement, mais le code final est mieux optimisé
+lto = true          # "Link Time Optimization" : Fusionne tout le code pour l'optimiser en bloc
+opt-level = 3       # Niveau d'optimisation maximum
+strip = true        # Retire les infos de debug pour réduire la taille de l'exe

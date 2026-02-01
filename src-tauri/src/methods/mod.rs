@@ -7,3 +7,4 @@ pub mod potions;
 pub mod press_key;
 pub mod text_utils;
 pub mod type_text;
+pub mod vision;
