@@ -5,30 +5,15 @@
   import SettingsPage from "$lib/components/Settings/SettingsPage.svelte";
   import DashboardView from "$lib/components/Dashboard/DashboardView.svelte";
 
-  import { saveProfile, loadProfile } from "$lib/services/profileService";
-
   import { tabStore } from "$lib/stores/tabStore.svelte";
   import { guideStore } from "$lib/stores/guideStore.svelte";
   import { windowStore } from "$lib/stores/windowStore.svelte";
+  import { profileStore } from "$lib/stores/profileStore.svelte";
 
   let syncTimeout: number | undefined;
 
   onMount(async () => {
-    const profile = await loadProfile();
-
-    windowStore.restoreFromProfile(profile.characterName || "Mon Personnage");
-    guideStore.restoreFromProfile(
-      profile.guideProgress || {},
-      profile.checkboxStates || {},
-    );
-    await tabStore.restoreFromProfile(
-      profile.openTabIds || [],
-      profile.activeTabId || "",
-    );
-
-    windowStore.isLoaded = true;
-    await windowStore.performWindowSync();
-    windowStore.status = "Prêt";
+    await profileStore.init();
   });
 
   // Auto-sync quand usableTitle change
@@ -42,16 +27,10 @@
     );
   });
 
-  // Auto-save du profil
+  // Auto-save du profil actif
   $effect(() => {
     if (!windowStore.isLoaded) return;
-    saveProfile({
-      characterName: windowStore.windowTitle,
-      openTabIds: tabStore.tabs.map((t) => t.id),
-      activeTabId: tabStore.activeTab,
-      guideProgress: $state.snapshot(guideStore.guideProgress),
-      checkboxStates: $state.snapshot(guideStore.checkboxStates),
-    });
+    profileStore.saveCurrentProfile();
   });
 </script>
 
