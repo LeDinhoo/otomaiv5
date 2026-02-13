@@ -1,5 +1,6 @@
 use regex::Regex;
-use std::{thread, time::Duration}; // Nécessaire pour le sleep
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::{thread, time::Duration};
 use windows::Win32::Foundation::{BOOL, HWND, LPARAM};
 use windows::Win32::UI::WindowsAndMessaging::{
     EnumWindows, GetWindowTextLengthW, GetWindowTextW, IsWindowVisible,
@@ -39,15 +40,21 @@ pub fn find_specific_game_window(character_name: &str) -> Option<String> {
     context.result
 }
 
-/// NOUVELLE FONCTION : Tente de retrouver la fenêtre (30 essais, 2s délai)
-pub fn try_autorecovery(character_name: &str) -> Option<String> {
+/// Tente de retrouver la fenêtre (30 essais, 2s délai)
+/// S'arrête immédiatement si cancel_flag passe à true
+pub fn try_autorecovery(character_name: &str, cancel_flag: &AtomicBool) -> Option<String> {
     let max_retries = 30;
     let delay = Duration::from_secs(2);
 
     println!("🔄 AUTO-RECOVERY: Démarrage pour '{}'", character_name);
 
     for i in 1..=max_retries {
-        // On tente une recherche standard
+        // Vérifier si on doit s'arrêter
+        if cancel_flag.load(Ordering::Relaxed) {
+            println!("🛑 AUTO-RECOVERY: Annulée (nouveau sync lancé)");
+            return None;
+        }
+
         if let Some(title) = find_specific_game_window(character_name) {
             println!(
                 "✅ AUTO-RECOVERY: Succès à la tentative {}/{}",
@@ -60,7 +67,15 @@ pub fn try_autorecovery(character_name: &str) -> Option<String> {
             "⚠️ Tentative {}/{} échouée. Nouvelle essai dans 2s...",
             i, max_retries
         );
-        thread::sleep(delay);
+
+        // Découper le sleep en petits intervalles pour réagir vite à l'annulation
+        for _ in 0..20 {
+            if cancel_flag.load(Ordering::Relaxed) {
+                println!("🛑 AUTO-RECOVERY: Annulée (nouveau sync lancé)");
+                return None;
+            }
+            thread::sleep(Duration::from_millis(100));
+        }
     }
 
     println!(

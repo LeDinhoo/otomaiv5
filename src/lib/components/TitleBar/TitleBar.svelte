@@ -12,6 +12,8 @@
     BookSearch,
     Settings,
     WifiOff,
+    RefreshCw,
+    Pencil,
   } from "@lucide/svelte";
 
   import { windowStore } from "$lib/stores/windowStore.svelte";
@@ -92,8 +94,21 @@
   </div>
 
   <div
-    class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-20 flex items-center gap-2 group"
+    class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-20 flex items-center gap-1 group"
   >
+    <!-- Bouton éditer/verrouiller le nom -->
+    <button
+      onclick={() => windowStore.toggleNameLock()}
+      class="p-1.5 rounded transition-all z-30 flex items-center justify-center cursor-pointer hover:bg-stone-700"
+      title={windowStore.isLocked ? "Modifier le nom" : "Confirmer le nom"}
+    >
+      {#if windowStore.isLocked}
+        <Pencil class="w-3 h-3 text-stone-500 hover:text-stone-300" />
+      {:else}
+        <Lock class="w-3 h-3 text-yellow-500/80" />
+      {/if}
+    </button>
+
     <input
       type="text"
       tabindex={windowStore.isLocked ? -1 : 0}
@@ -107,26 +122,37 @@
         : 'pointer-events-auto cursor-text hover:bg-stone-700/30'}"
       spellcheck="false"
       placeholder="Personnage..."
-      onkeydown={(e) => e.key === "Enter" && windowStore.handleLockAction()}
+      onkeydown={(e) => {
+        if (e.key === "Enter") {
+          windowStore.toggleNameLock();
+          windowStore.triggerSync();
+        }
+      }}
     />
 
+    <!-- Bouton sync/resync séparé -->
     <button
-      onclick={() => windowStore.handleLockAction()}
+      onclick={() => {
+        if (windowStore.syncState === "lost") {
+          windowStore.triggerRecovery();
+        } else {
+          windowStore.triggerSync();
+        }
+      }}
+      disabled={windowStore.syncState === "recovering"}
       class="p-1.5 rounded transition-all relative z-30 flex items-center justify-center
       {windowStore.syncState === 'recovering'
         ? 'cursor-wait'
         : 'cursor-pointer hover:bg-stone-700'}"
-      title={windowStore.isLocked
-        ? windowStore.syncState === "lost"
-          ? "Perdu ! Cliquer pour relancer"
-          : "Déverrouiller"
-        : "Verrouiller et Synchroniser"}
+      title={windowStore.syncState === "lost"
+        ? "Connexion perdue — Cliquer pour relancer"
+        : windowStore.syncState === "synced"
+          ? "Synchronisé — Cliquer pour resync"
+          : windowStore.syncState === "recovering"
+            ? "Synchronisation en cours..."
+            : "Synchroniser"}
     >
-      {#if !windowStore.isLocked}
-        <LockOpen
-          class="w-3.5 h-3.5 text-yellow-500/80 group-hover:text-yellow-400"
-        />
-      {:else if windowStore.syncState === "recovering"}
+      {#if windowStore.syncState === "recovering"}
         <Loader2 class="w-3.5 h-3.5 text-orange-500 animate-spin" />
       {:else if windowStore.syncState === "lost"}
         <div class="relative">
@@ -139,8 +165,10 @@
             ></span>
           </span>
         </div>
+      {:else if windowStore.syncState === "synced"}
+        <RefreshCw class="w-3.5 h-3.5 text-green-500" />
       {:else}
-        <Lock class="w-3.5 h-3.5 text-green-500" />
+        <RefreshCw class="w-3.5 h-3.5 text-stone-500 hover:text-stone-300" />
       {/if}
     </button>
   </div>

@@ -352,14 +352,16 @@ use settings::{AutomationSettings, SettingsState};
 
 use methods::guide_parser::{GuideParser, GuideResult};
 use methods::key_listener::{self, KeyListenerState, SharedKeyListenerState};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
-use tauri::{AppHandle, Emitter, Manager}; 
+use tauri::{AppHandle, Emitter, Manager};
 
 pub struct ActiveSession {
     pub window_title: Mutex<Option<String>>,
     pub target_char_name: Mutex<Option<String>>,
     pub is_recovering: Mutex<bool>,
+    pub cancel_recovery: Arc<AtomicBool>,
 }
 
 #[tauri::command]
@@ -414,6 +416,9 @@ async fn sync_window_title(
 ) -> Result<String, String> {
     println!("DEBUG INPUT: Sync demandée pour {:?}", character_name);
 
+    // Annuler toute recovery en cours
+    state.cancel_recovery.store(true, Ordering::Relaxed);
+
     {
         let mut target_storage = state.target_char_name.lock().unwrap();
         *target_storage = Some(character_name.clone());
@@ -467,9 +472,11 @@ async fn trigger_auto_recovery(
 
     let _ = app_handle.emit("sync-status", "recovering");
 
-    let state_clone = state.inner().clone();
+    // Reset le flag d'annulation avant de démarrer
+    state.cancel_recovery.store(false, Ordering::Relaxed);
+    let cancel_flag = state.cancel_recovery.clone();
 
-    let found_title = window_finder::try_autorecovery(&target_name);
+    let found_title = window_finder::try_autorecovery(&target_name, &cancel_flag);
 
     let mut recovering = state.is_recovering.lock().unwrap();
     *recovering = false;
@@ -617,6 +624,7 @@ pub fn run() {
             window_title: Mutex::new(None),
             target_char_name: Mutex::new(None),
             is_recovering: Mutex::new(false),
+            cancel_recovery: Arc::new(AtomicBool::new(false)),
         })
         // 2. GESTION DES SETTINGS
         .manage(SettingsState(Mutex::new(AutomationSettings::default())))
