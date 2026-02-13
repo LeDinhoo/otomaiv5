@@ -1,6 +1,5 @@
 <script lang="ts">
   import { getCurrentWindow } from "@tauri-apps/api/window";
-  import { invoke } from "@tauri-apps/api/core";
   import { listen } from "@tauri-apps/api/event";
   import { onMount } from "svelte";
   import { Button } from "$lib/components/ui/button/index.js";
@@ -15,33 +14,22 @@
     WifiOff,
   } from "@lucide/svelte";
 
-  let {
-    usableTitle = $bindable(),
-    ouvrirNotification,
-    onToggleLibrary,
-    onToggleSettings,
-  } = $props();
+  import { windowStore } from "$lib/stores/windowStore.svelte";
+  import { showCustomNotification } from "$lib/utils";
 
-  // États de la synchronisation
-  type SyncStatus = "none" | "synced" | "recovering" | "lost";
-
-  let syncState = $state<SyncStatus>("none");
-  let isLocked = $state(false);
-
-  // Initialisation de l'écouteur d'événements
   onMount(async () => {
     const unlisten = await listen<string>("sync-status", (event) => {
       const status = event.payload;
 
       if (status === "synced") {
-        syncState = "synced";
-        isLocked = true;
+        windowStore.syncState = "synced";
+        windowStore.isLocked = true;
       } else if (status === "recovering") {
-        syncState = "recovering";
-        isLocked = true;
+        windowStore.syncState = "recovering";
+        windowStore.isLocked = true;
       } else if (status === "lost") {
-        syncState = "lost";
-        isLocked = true;
+        windowStore.syncState = "lost";
+        windowStore.isLocked = true;
       }
     });
 
@@ -49,38 +37,6 @@
       unlisten();
     };
   });
-
-  // Gestion du Clic principal sur le Cadenas
-  const handleLockAction = async () => {
-    if (!isLocked) {
-      // CAS 1 : On veut VERROUILLER -> Lancer la Synchro initiale
-      if (!usableTitle || usableTitle.trim() === "") return;
-
-      isLocked = true;
-      syncState = "recovering"; // Feedback immédiat
-
-      try {
-        await invoke("sync_window_title", { characterName: usableTitle });
-      } catch (err) {
-        console.error("Erreur sync:", err);
-        syncState = "lost";
-      }
-    } else {
-      // CAS 2 : C'est déjà verrouillé.
-      if (syncState === "synced") {
-        // Vert -> On déverrouille pour éditer
-        isLocked = false;
-        syncState = "none";
-      } else if (syncState === "lost") {
-        // Rouge -> On relance la recherche (Retry)
-        try {
-          await invoke("trigger_auto_recovery");
-        } catch (e) {
-          console.error("Erreur trigger recovery:", e);
-        }
-      }
-    }
-  };
 
   const close = async () => {
     await getCurrentWindow().close();
@@ -101,7 +57,7 @@
       variant="ghost"
       size="icon"
       class="h-6 w-6 text-stone-500 hover:text-stone-200 hover:bg-stone-700"
-      onclick={onToggleLibrary}
+      onclick={() => windowStore.toggleView("library")}
       title="Bibliothèque de guides"
       onmousedown={(e) => e.stopPropagation()}
     >
@@ -112,7 +68,7 @@
       variant="ghost"
       size="icon"
       class="h-6 w-6 text-stone-500 hover:text-stone-200 hover:bg-stone-700"
-      onclick={onToggleSettings}
+      onclick={() => windowStore.toggleView("settings")}
       title="Configuration"
       onmousedown={(e) => e.stopPropagation()}
     >
@@ -124,7 +80,7 @@
       size="icon"
       class="h-6 w-6 hover:bg-stone-700"
       title="Archimonstre"
-      onclick={() => ouvrirNotification()}
+      onclick={() => showCustomNotification()}
       onmousedown={(e) => e.stopPropagation()}
     >
       <img
@@ -140,39 +96,39 @@
   >
     <input
       type="text"
-      tabindex={isLocked ? -1 : 0}
-      bind:value={usableTitle}
-      readonly={isLocked}
+      tabindex={windowStore.isLocked ? -1 : 0}
+      bind:value={windowStore.usableTitle}
+      readonly={windowStore.isLocked}
       class="bg-transparent border-none text-sm font-bold text-stone-200 text-center
              focus:outline-none focus:bg-stone-700/50 focus:ring-1 focus:ring-stone-600
              rounded px-2 py-0.5 transition-all outline-none min-w-[50px]
-             {isLocked
+             {windowStore.isLocked
         ? 'pointer-events-none cursor-default opacity-80'
         : 'pointer-events-auto cursor-text hover:bg-stone-700/30'}"
       spellcheck="false"
       placeholder="Personnage..."
-      onkeydown={(e) => e.key === "Enter" && handleLockAction()}
+      onkeydown={(e) => e.key === "Enter" && windowStore.handleLockAction()}
     />
 
     <button
-      onclick={handleLockAction}
+      onclick={() => windowStore.handleLockAction()}
       class="p-1.5 rounded transition-all relative z-30 flex items-center justify-center
-      {syncState === 'recovering'
+      {windowStore.syncState === 'recovering'
         ? 'cursor-wait'
         : 'cursor-pointer hover:bg-stone-700'}"
-      title={isLocked
-        ? syncState === "lost"
+      title={windowStore.isLocked
+        ? windowStore.syncState === "lost"
           ? "Perdu ! Cliquer pour relancer"
           : "Déverrouiller"
         : "Verrouiller et Synchroniser"}
     >
-      {#if !isLocked}
+      {#if !windowStore.isLocked}
         <LockOpen
           class="w-3.5 h-3.5 text-yellow-500/80 group-hover:text-yellow-400"
         />
-      {:else if syncState === "recovering"}
+      {:else if windowStore.syncState === "recovering"}
         <Loader2 class="w-3.5 h-3.5 text-orange-500 animate-spin" />
-      {:else if syncState === "lost"}
+      {:else if windowStore.syncState === "lost"}
         <div class="relative">
           <WifiOff class="w-3.5 h-3.5 text-red-500 animate-pulse" />
           <span class="absolute -top-1 -right-1 flex h-2 w-2">

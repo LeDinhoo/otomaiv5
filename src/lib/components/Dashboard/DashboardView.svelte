@@ -4,24 +4,17 @@
   import GuideLibrary from "$lib/components/Guide/GuideLibrary.svelte";
   import GuideViewer from "$lib/components/Guide/GuideViewer.svelte";
   import EmptyDashboard from "./EmptyDashboard.svelte";
-  
-  // Importer l'animation pour que les onglets glissent
   import { flip } from "svelte/animate";
 
-  let {
-    tabs = $bindable([]),
-    activeTab = $bindable(),
-    openGuides,
-    guideProgress = $bindable(),
-    checkboxStates = $bindable(),
-    usableTitle = $bindable(),
-    fullTitle = $bindable(),
-    onCloseTab,
-    onOpenGuide,
-    onNavigate,
-    onPrevStep,
-    onNextStep,
-  } = $props();
+  import { tabStore } from "$lib/stores/tabStore.svelte";
+  import { guideStore } from "$lib/stores/guideStore.svelte";
+
+  // S'assurer que la progression existe quand on change d'onglet
+  $effect(() => {
+    if (tabStore.activeTab.startsWith("guide_")) {
+      guideStore.ensureProgress(tabStore.activeTab);
+    }
+  });
 
   // --- LOGIQUE DRAG & DROP ---
   let draggingIndex: number | null = $state(null);
@@ -32,26 +25,19 @@
     if (e.dataTransfer) {
       e.dataTransfer.effectAllowed = "move";
       e.dataTransfer.dropEffect = "move";
-      // Nécessaire pour Firefox
       e.dataTransfer.setData("text/plain", index.toString());
     }
   }
 
   function handleDragOver(e: DragEvent, index: number) {
-    e.preventDefault(); // Autorise le drop
+    e.preventDefault();
     hoveringIndex = index;
   }
 
   function handleDrop(e: DragEvent, targetIndex: number) {
     e.preventDefault();
     if (draggingIndex === null || draggingIndex === targetIndex) return;
-
-    // Réorganiser le tableau
-    const itemToMove = tabs[draggingIndex];
-    tabs.splice(draggingIndex, 1);
-    tabs.splice(targetIndex, 0, itemToMove);
-
-    // Reset
+    tabStore.reorderTabs(draggingIndex, targetIndex);
     draggingIndex = null;
     hoveringIndex = null;
   }
@@ -65,7 +51,7 @@
 <div class="flex flex-col flex-1 min-h-0 overflow-hidden">
   <div class="flex-none">
     <TabBar>
-      {#each tabs as tab, index (tab.id)}
+      {#each tabStore.tabs as tab, index (tab.id)}
         <div
           role="listitem"
           draggable="true"
@@ -79,9 +65,9 @@
         >
           <Tab
             label={tab.label}
-            active={activeTab === tab.id}
-            onclick={() => (activeTab = tab.id)}
-            onclose={() => onCloseTab(tab.id)}
+            active={tabStore.activeTab === tab.id}
+            onclick={() => tabStore.setActiveTab(tab.id)}
+            onclose={() => tabStore.closeTab(tab.id)}
             closable={true}
           />
         </div>
@@ -90,26 +76,17 @@
   </div>
 
   <div class="flex-1 min-h-0 flex flex-col relative overflow-hidden">
-    {#if tabs.length === 0 && activeTab !== "general"}
+    {#if tabStore.tabs.length === 0 && tabStore.activeTab !== "general"}
       <EmptyDashboard />
-    {:else if activeTab === "general"}
-      <GuideLibrary onOpen={onOpenGuide} />
-    {:else if activeTab.startsWith("guide_")}
-      {@const guide = openGuides[activeTab]}
+    {:else if tabStore.activeTab === "general"}
+      <GuideLibrary onOpen={(id) => tabStore.openGuide(id)} />
+    {:else if tabStore.activeTab.startsWith("guide_")}
+      {@const guide = tabStore.openGuides[tabStore.activeTab]}
 
       {#if guide}
-        {#if !checkboxStates[activeTab]}
-          {(checkboxStates[activeTab] = {})}
-        {/if}
-
         <GuideViewer
           {guide}
-          bind:stepIndex={guideProgress[activeTab]}
-          bind:checkboxState={checkboxStates[activeTab]}
-          onPrev={() => onPrevStep(activeTab)}
-          onNext={() => onNextStep(activeTab, guide.steps.length)}
-          {onNavigate}
-          bind:fullTitle
+          tabId={tabStore.activeTab}
         />
       {/if}
     {/if}

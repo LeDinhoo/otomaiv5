@@ -1,7 +1,8 @@
 <script lang="ts">
   import { MapPin } from "@lucide/svelte";
+  import { guideStore } from "$lib/stores/guideStore.svelte";
 
-  let { stepIndex = $bindable(), totalSteps, currentStep } = $props();
+  let { stepIndex, totalSteps, currentStep, tabId } = $props();
 
   let progressPercentage = $derived(((stepIndex + 1) / totalSteps) * 100);
 
@@ -9,7 +10,7 @@
     const input = e.target as HTMLInputElement;
     const val = parseInt(input.value);
     if (!isNaN(val) && val >= 1 && val <= totalSteps) {
-      stepIndex = val - 1;
+      guideStore.setStep(tabId, val - 1);
     } else {
       input.value = (stepIndex + 1).toString();
     }

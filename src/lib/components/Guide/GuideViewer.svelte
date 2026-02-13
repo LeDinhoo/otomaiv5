@@ -3,20 +3,15 @@
   import { listen } from "@tauri-apps/api/event";
   import { onDestroy, onMount } from "svelte";
 
-  // Imports des nouveaux composants
   import GuideHeader from "./GuideHeader.svelte";
   import GuideContent from "./GuideContent.svelte";
   import GuideControls from "./GuideControls.svelte";
 
-  let {
-    guide,
-    stepIndex = $bindable(0),
-    checkboxState = $bindable({}),
-    onPrev,
-    onNext,
-    fullTitle = $bindable(),
-    onNavigate,
-  } = $props();
+  import { guideStore } from "$lib/stores/guideStore.svelte";
+  import { windowStore } from "$lib/stores/windowStore.svelte";
+  import { tabStore } from "$lib/stores/tabStore.svelte";
+
+  let { guide, tabId } = $props();
 
   // --- États Logiques ---
   let listenKeys = $state(false);
@@ -24,6 +19,7 @@
   let unlistenHandle: (() => void) | undefined;
   let currentAnalysis = $state(null);
 
+  let stepIndex = $derived(guideStore.guideProgress[tabId] ?? 0);
   let currentStep = $derived(guide.steps[stepIndex]);
 
   // --- Logique Métier (Parsing & Autopilot) ---
@@ -40,10 +36,14 @@
     if (autoPilot && currentAnalysis) {
       invoke("execute_step_automation", {
         step: currentAnalysis,
-        windowTitle: fullTitle,
+        windowTitle: windowStore.fullTitle,
       }).catch((e) => console.error("Erreur Auto-Pilot:", e));
     }
-    onNext();
+    guideStore.nextStep(tabId, guide.steps.length);
+  }
+
+  function handlePrev() {
+    guideStore.prevStep(tabId);
   }
 
   $effect(() => {
@@ -64,7 +64,7 @@
       unlistenHandle = await listen("key-detected", (event) => {
         if (!listenKeys) return;
         const key = event.payload as string;
-        if (key === "left") onPrev();
+        if (key === "left") handlePrev();
         else if (key === "right") handleNextAction();
       });
     }
@@ -77,31 +77,42 @@
 
   function handleInternalNavigate(targetId: string, targetIndex: number) {
     if (targetId == guide.id) {
-      // On ne force l'étape que si c'est un index précis (>= 0)
       if (targetIndex !== -1) {
-        stepIndex = targetIndex;
+        guideStore.setStep(tabId, targetIndex);
       }
-    } else if (onNavigate) {
-      onNavigate(targetId, targetIndex);
+    } else {
+      // Ouvrir un autre guide et naviguer
+      tabStore.openGuide(targetId).then((newTabId) => {
+        if (newTabId && targetIndex !== -1) {
+          setTimeout(() => {
+            guideStore.setStep(newTabId, targetIndex);
+          }, 50);
+        }
+      });
     }
   }
 </script>
 
 <div class="flex flex-col h-full">
-  <GuideHeader bind:stepIndex totalSteps={guide.steps.length} {currentStep} />
+  <GuideHeader
+    {stepIndex}
+    totalSteps={guide.steps.length}
+    {currentStep}
+    {tabId}
+  />
 
   <GuideContent
     {currentStep}
     guideId={guide.id}
-    bind:checkboxState={checkboxState[stepIndex]}
+    {tabId}
+    {stepIndex}
     onNavigate={handleInternalNavigate}
-    {fullTitle}
   />
 
   <GuideControls
     canGoPrev={stepIndex > 0}
     canGoNext={stepIndex < guide.steps.length - 1}
-    {onPrev}
+    onPrev={handlePrev}
     onNext={handleNextAction}
     bind:autoPilot
     bind:listenKeys

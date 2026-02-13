@@ -1,12 +1,14 @@
 <script lang="ts">
   import { invoke } from "@tauri-apps/api/core";
+  import { windowStore } from "$lib/stores/windowStore.svelte";
+  import { guideStore } from "$lib/stores/guideStore.svelte";
 
   let {
     currentStep,
     guideId,
-    checkboxState = $bindable(),
+    tabId,
+    stepIndex,
     onNavigate,
-    fullTitle = $bindable(),
   } = $props();
 
   let contentDiv: HTMLElement | undefined = $state();
@@ -17,31 +19,24 @@
     const posRegex = /\[(-?\d+)\s*,\s*(-?\d+)\]/g;
     return currentStep.web_text.replace(
       posRegex,
-      (match) => `<span class="inline-pos">${match}</span>`,
+      (match: string) => `<span class="inline-pos">${match}</span>`,
     );
   });
 
   function handleContentClick(event: MouseEvent) {
     const target = event.target as HTMLElement;
 
-    // --- NOUVELLE LOGIQUE POUR LE DÉPLACEMENT ---
     if (target.matches(".inline-pos")) {
       event.preventDefault();
       event.stopPropagation();
 
-      // Récupère le texte ex: "[-20,10]" et le transforme en "-20,10"
       const rawText = target.textContent || "";
       const coords = rawText.replace(/[\[\]]/g, "").trim();
 
-      console.log("Coordonnées cliquées :", coords);
-      console.log("Usable Title :", fullTitle);
-
       if (coords) {
-        console.log(`Déplacement vers : ${coords}`);
-        // Appel à ta commande Rust
         invoke("send_chat_command", {
           command: `/travel ${coords}`,
-          windowTitle: fullTitle,
+          windowTitle: windowStore.fullTitle,
         }).catch((err) => {
           console.error("Erreur travel:", err);
         });
@@ -80,15 +75,17 @@
 
     const inputs = contentDiv.querySelectorAll('input[type="checkbox"]');
 
-    if (!checkboxState) checkboxState = [];
+    if (!guideStore.checkboxStates[tabId]) guideStore.checkboxStates[tabId] = {};
+    const checkboxState = guideStore.checkboxStates[tabId];
 
     inputs.forEach((inputElement, index) => {
       const input = inputElement as HTMLInputElement;
 
-      input.checked = checkboxState[index] || false;
+      input.checked = checkboxState[stepIndex]?.[index] || false;
 
       input.onchange = () => {
-        checkboxState[index] = input.checked;
+        if (!checkboxState[stepIndex]) checkboxState[stepIndex] = [];
+        checkboxState[stepIndex][index] = input.checked;
       };
     });
 
