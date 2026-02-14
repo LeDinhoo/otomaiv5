@@ -350,6 +350,7 @@ mod window_finder;
 mod settings;
 use settings::{AutomationSettings, SettingsState};
 
+use methods::click_mirror::{self, ClickMirrorState, SharedClickMirrorState};
 use methods::guide_parser::{GuideParser, GuideResult};
 use methods::key_listener::{self, KeyListenerState, SharedKeyListenerState};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -518,14 +519,18 @@ fn get_settings(state: tauri::State<'_, SettingsState>) -> AutomationSettings {
 
 #[tauri::command]
 async fn execute_step_automation(
-    app_handle: AppHandle, // <--- 2. AJOUT DU HANDLE ICI
+    app_handle: AppHandle,
     step: GuideResult,
+    window_title: Option<String>,
     state: tauri::State<'_, ActiveSession>,
-    settings_state: tauri::State<'_, SettingsState>, 
+    settings_state: tauri::State<'_, SettingsState>,
 ) -> Result<String, String> {
-    let window_title = {
-        let title_lock = state.window_title.lock().unwrap();
-        title_lock.clone().ok_or("Aucune fenêtre synchronisée.")?
+    let window_title = match window_title {
+        Some(t) if !t.is_empty() => t,
+        _ => {
+            let title_lock = state.window_title.lock().unwrap();
+            title_lock.clone().ok_or("Aucune fenêtre synchronisée.")?
+        }
     };
 
     // CRUCIAL : On récupère une COPIE des settings MAINTENANT pour les donner au thread
@@ -612,12 +617,19 @@ pub fn run() {
         target_keys: vec![],
     }));
 
+    let click_mirror_state: SharedClickMirrorState = Arc::new(Mutex::new(ClickMirrorState {
+        active: false,
+        leader_title: String::new(),
+        follower_titles: vec![],
+    }));
+
     tauri::Builder::default()
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_http::init())
         .plugin(tauri_plugin_opener::init())
         .manage(listener_state)
+        .manage(click_mirror_state)
         .plugin(tauri_plugin_notification::init())
         // 1. GESTION DE SESSION
         .manage(ActiveSession {
@@ -636,6 +648,10 @@ pub fn run() {
             *state.0.lock().unwrap() = loaded_settings;
 
             key_listener::init_background_listener(app.handle());
+
+            let mirror_state = app.state::<SharedClickMirrorState>();
+            click_mirror::init_click_mirror(mirror_state.inner().clone());
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -652,6 +668,7 @@ pub fn run() {
             parse_guide_step,
             execute_step_automation,
             methods::key_listener::set_key_listener,
+            methods::click_mirror::set_click_mirror,
             send_chat_command,
             get_settings,
             save_settings_cmd

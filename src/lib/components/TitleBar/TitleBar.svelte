@@ -7,13 +7,13 @@
     X,
     Minus,
     Lock,
-    LockOpen,
     Loader2,
     BookSearch,
     Settings,
     WifiOff,
     RefreshCw,
     Pencil,
+    Users,
   } from "@lucide/svelte";
 
   import { windowStore } from "$lib/stores/windowStore.svelte";
@@ -47,6 +47,12 @@
   const minimize = async () => {
     await getCurrentWindow().minimize();
   };
+
+  let syncedTeamCount = $derived(
+    windowStore.teamMembers.filter(
+      (m) => windowStore.teamWindows[m]?.syncState === "synced",
+    ).length,
+  );
 </script>
 
 <div
@@ -90,6 +96,29 @@
         alt="Archimonstre"
         class="w-5 h-5 -translate-y-[1.5px] hover:opacity-100 opacity-60"
       />
+    </Button>
+
+    <!-- Bouton Team -->
+    <Button
+      variant="ghost"
+      size="icon"
+      class="h-6 w-6 hover:bg-stone-700 relative"
+      title="Gestion Team"
+      onclick={() => windowStore.toggleView("team")}
+      onmousedown={(e) => e.stopPropagation()}
+    >
+      <Users
+        class="w-4 h-4 {windowStore.teamMode
+          ? 'text-amber-400'
+          : 'text-stone-500 hover:text-stone-200'}"
+      />
+      {#if windowStore.teamMode && windowStore.teamMembers.length > 0}
+        <span
+          class="absolute -top-0.5 -right-0.5 bg-amber-500 text-stone-900 text-[9px] font-bold rounded-full w-3.5 h-3.5 flex items-center justify-center"
+        >
+          {syncedTeamCount + (windowStore.syncState === "synced" ? 1 : 0)}
+        </span>
+      {/if}
     </Button>
   </div>
 

@@ -4,6 +4,7 @@
   import LibraryPage from "$lib/components/Settings/LibraryPage.svelte";
   import SettingsPage from "$lib/components/Settings/SettingsPage.svelte";
   import DashboardView from "$lib/components/Dashboard/DashboardView.svelte";
+  import TeamPanel from "$lib/components/Team/TeamPanel.svelte";
 
   import { tabStore } from "$lib/stores/tabStore.svelte";
   import { guideStore } from "$lib/stores/guideStore.svelte";
@@ -50,6 +51,10 @@
   {:else if windowStore.currentView === "settings"}
     <div class="flex-1 overflow-hidden bg-stone-900">
       <SettingsPage />
+    </div>
+  {:else if windowStore.currentView === "team"}
+    <div class="flex-1 overflow-hidden bg-stone-900">
+      <TeamPanel />
     </div>
   {:else}
     <DashboardView />

@@ -15,6 +15,8 @@ export interface AppProfile {
   activeTabId: string;
   guideProgress: Record<string, number>;
   checkboxStates: Record<string, Record<number, boolean[]>>;
+  teamMode: boolean;
+  teamMembers: string[];
 }
 
 export interface ProfileEntry {
@@ -39,6 +41,8 @@ const DEFAULT_PROFILE: AppProfile = {
   activeTabId: "general",
   guideProgress: {},
   checkboxStates: {},
+  teamMode: false,
+  teamMembers: [],
 };
 
 const DEFAULT_INDEX: ProfileIndex = {

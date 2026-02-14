@@ -5,6 +5,7 @@
     ChevronRight,
     Waypoints,
     Keyboard,
+    MousePointerClick,
   } from "@lucide/svelte";
 
   let {
@@ -14,7 +15,9 @@
     onNext,
     autoPilot = $bindable(false),
     listenKeys = $bindable(true),
+    mirrorClicks = $bindable(false),
     onToggleListenKeys,
+    onToggleMirrorClicks,
   } = $props();
 </script>
 
@@ -56,6 +59,21 @@
     >
       <Keyboard
         class="size-5 drop-shadow-4xl {listenKeys
+          ? 'text-[#f7c882]'
+          : 'text-stone-300'}"
+      />
+    </Button>
+
+    <Button
+      variant="secondary"
+      onclick={onToggleMirrorClicks}
+      title="Mirror Clics (réplique les clics sur les suiveurs)"
+      class="{mirrorClicks
+        ? ' bg-[#a09890b9] hover:bg-[#d1c4b7b2] '
+        : 'bg-[#615d59] hover:bg-[#968d84]'} size-9 cursor-pointer rounded-none h-full flex items-center justify-center select-none"
+    >
+      <MousePointerClick
+        class="size-5 drop-shadow-4xl {mirrorClicks
           ? 'text-[#f7c882]'
           : 'text-stone-300'}"
       />

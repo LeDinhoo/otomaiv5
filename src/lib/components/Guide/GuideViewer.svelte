@@ -16,6 +16,7 @@
   // --- États Logiques ---
   let listenKeys = $state(false);
   let autoPilot = $state(false);
+  let mirrorClicks = $state(false);
   let unlistenHandle: (() => void) | undefined;
   let currentAnalysis = $state(null);
 
@@ -34,10 +35,43 @@
 
   async function handleNextAction() {
     if (autoPilot && currentAnalysis) {
-      invoke("execute_step_automation", {
-        step: currentAnalysis,
-        windowTitle: windowStore.fullTitle,
-      }).catch((e) => console.error("Erreur Auto-Pilot:", e));
+      const analysis = currentAnalysis as {
+        macro_type?: string;
+        travel_cmd?: string | null;
+        [key: string]: unknown;
+      };
+      const isClassic = analysis.macro_type === "classic";
+      const titles = isClassic
+        ? [windowStore.fullTitle].filter(Boolean)
+        : windowStore.allSyncedTitles;
+      const isLeader = (title: string) => title === windowStore.fullTitle;
+
+      for (const title of titles) {
+        try {
+          // Les suiveurs ne font pas le travel final (ils suivent le meneur en jeu)
+          const step =
+            !isLeader(title) && analysis.travel_cmd
+              ? { ...analysis, travel_cmd: null }
+              : currentAnalysis;
+
+          await invoke("execute_step_automation", {
+            step,
+            windowTitle: title,
+          });
+        } catch (e) {
+          console.error(`Erreur Auto-Pilot (${title}):`, e);
+        }
+      }
+
+      // Refocus + réactiver le suivi seulement après une automation multi-fenêtres
+      if (!isClassic && titles.length > 1 && windowStore.fullTitle) {
+        try {
+          await invoke("focus_window", {
+            windowTitle: windowStore.fullTitle,
+          });
+          await invoke("press_key", { key: "ctrl+z", count: 1 });
+        } catch {}
+      }
     }
     guideStore.nextStep(tabId, guide.steps.length);
   }
@@ -49,6 +83,22 @@
   $effect(() => {
     if (currentStep?.web_text) analyzeStep(currentStep.web_text);
   });
+
+  // --- Click Mirror ---
+  function updateClickMirror() {
+    const followerTitles = windowStore.teamMode
+      ? windowStore.teamMembers
+          .map((m) => windowStore.teamWindows[m])
+          .filter((s) => s?.syncState === "synced" && s.fullTitle)
+          .map((s) => s.fullTitle)
+      : [];
+
+    invoke("set_click_mirror", {
+      active: mirrorClicks && followerTitles.length > 0,
+      leaderTitle: windowStore.fullTitle || "",
+      followerTitles,
+    });
+  }
 
   // --- Gestion des Raccourcis Clavier (Tauri Events) ---
   function updateKeyListener() {
@@ -72,6 +122,11 @@
 
   onDestroy(() => {
     invoke("set_key_listener", { active: false, keys: [] });
+    invoke("set_click_mirror", {
+      active: false,
+      leaderTitle: "",
+      followerTitles: [],
+    });
     if (unlistenHandle) unlistenHandle();
   });
 
@@ -116,9 +171,14 @@
     onNext={handleNextAction}
     bind:autoPilot
     bind:listenKeys
+    bind:mirrorClicks
     onToggleListenKeys={() => {
       listenKeys = !listenKeys;
       updateKeyListener();
+    }}
+    onToggleMirrorClicks={() => {
+      mirrorClicks = !mirrorClicks;
+      updateClickMirror();
     }}
   />
 </div>

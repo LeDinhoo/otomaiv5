@@ -16,6 +16,16 @@ pub fn press_key_multiple_times(
 
     for _ in 0..count {
         match key_str.to_lowercase().as_str() {
+            "ctrl+z" => {
+                unsafe {
+                    send_native_scancode(0x11, true, false);  // Ctrl down
+                    thread::sleep(Duration::from_millis(30));
+                    send_native_scancode(0x5A, true, false);  // Z down
+                    thread::sleep(Duration::from_millis(30));
+                    send_native_scancode(0x5A, false, false); // Z up
+                    send_native_scancode(0x11, false, false); // Ctrl up
+                }
+            }
             "enter" | "esc" | "escape" | "space" | "tab" | "backspace" | "left" | "up"
             | "right" | "down" => {
                 let vk = match key_str.to_lowercase().as_str() {

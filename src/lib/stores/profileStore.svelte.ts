@@ -34,7 +34,7 @@ class ProfileStore {
     await this._loadProfileIntoStores(this.activeProfileId);
 
     windowStore.isLoaded = true;
-    await windowStore.performWindowSync();
+    await windowStore.syncAllTeam();
     windowStore.status = "Prêt";
   }
 
@@ -46,6 +46,8 @@ class ProfileStore {
       activeTabId: tabStore.activeTab,
       guideProgress: $state.snapshot(guideStore.guideProgress),
       checkboxStates: $state.snapshot(guideStore.checkboxStates),
+      teamMode: windowStore.teamMode,
+      teamMembers: $state.snapshot(windowStore.teamMembers),
     });
   }
 
@@ -65,7 +67,7 @@ class ProfileStore {
     await this._saveIndex();
 
     windowStore.isLoaded = true;
-    await windowStore.performWindowSync();
+    await windowStore.syncAllTeam();
   }
 
   /** Créer un nouveau profil et switcher dessus */
@@ -82,6 +84,8 @@ class ProfileStore {
       activeTabId: "general",
       guideProgress: {},
       checkboxStates: {},
+      teamMode: false,
+      teamMembers: [],
     });
 
     await this._saveIndex();
@@ -118,6 +122,10 @@ class ProfileStore {
     const profile = await loadProfile(profileId);
 
     windowStore.restoreFromProfile(profile.characterName || "Mon Personnage");
+    windowStore.restoreTeamFromProfile(
+      profile.teamMode ?? false,
+      profile.teamMembers ?? [],
+    );
     guideStore.restoreFromProfile(
       profile.guideProgress || {},
       profile.checkboxStates || {},
