@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import { listen } from "@tauri-apps/api/event";
   import TitleBar from "$lib/components/TitleBar/TitleBar.svelte";
   import LibraryPage from "$lib/components/Settings/LibraryPage.svelte";
   import SettingsPage from "$lib/components/Settings/SettingsPage.svelte";
@@ -15,6 +16,23 @@
 
   onMount(async () => {
     await profileStore.init();
+
+    const unlistenCombatStart = await listen("combat-detected", () => {
+      if (!windowStore.isMini) {
+        windowStore.toggleMini();
+      }
+    });
+
+    const unlistenCombatEnd = await listen("combat-ended", () => {
+      if (windowStore.isMini) {
+        windowStore.toggleMini();
+      }
+    });
+
+    return () => {
+      unlistenCombatStart();
+      unlistenCombatEnd();
+    };
   });
 
   // Auto-sync quand usableTitle change
@@ -39,7 +57,9 @@
   class="flex flex-col h-screen w-full rounded-lg overflow-hidden bg-stone-800 border border-stone-700 text-stone-200"
 >
   <TitleBar />
-  {#if windowStore.currentView === "library"}
+  {#if windowStore.isMini}
+    <!-- Mode mini : titlebar uniquement -->
+  {:else if windowStore.currentView === "library"}
     <div class="flex-1 overflow-hidden">
       <LibraryPage
         onSelectGuide={(id) => {

@@ -86,13 +86,106 @@
 
 use anyhow::{Context, Result};
 use opencv::{
-    core::{self, Mat, Point},
+    core::{self, Mat, Point, Rect},
     imgcodecs,
     imgproc,
     prelude::*,
 };
 use std::{thread, time::Duration};
 use xcap::Monitor;
+
+/// Scan unique sur le top 1/10 de l'écran. Renvoie true si l'image est trouvée.
+pub fn scan_top_region(abs_path: &str) -> Result<bool> {
+    let target_mat = imgcodecs::imread(abs_path, imgcodecs::IMREAD_GRAYSCALE)
+        .context(format!("ERREUR VISION: Impossible de lire '{}'", abs_path))?;
+
+    let monitors = Monitor::all().context("Erreur: Impossible de lister les moniteurs")?;
+    let monitor = monitors.first().context("Erreur: Aucun moniteur détecté")?;
+
+    let screenshot = monitor.capture_image().context("Erreur capture d'écran")?;
+    let width = screenshot.width() as i32;
+    let height = screenshot.height() as i32;
+    let raw_pixels = screenshot.as_raw();
+
+    let mat_linear = Mat::from_slice(raw_pixels)?;
+    let mat_rgba = mat_linear.reshape(4, height)?;
+
+    let mut screen_gray = Mat::default();
+    imgproc::cvt_color(&mat_rgba, &mut screen_gray, imgproc::COLOR_RGBA2GRAY, 0)?;
+
+    let mut result = Mat::default();
+    imgproc::match_template(
+        &screen_gray,
+        &target_mat,
+        &mut result,
+        imgproc::TM_CCOEFF_NORMED,
+        &core::no_array(),
+    )?;
+
+    let mut max_val = 0.0;
+    core::min_max_loc(
+        &result,
+        None,
+        Some(&mut max_val),
+        None,
+        None,
+        &core::no_array(),
+    )?;
+
+    Ok(max_val >= 0.9)
+}
+
+/// Scan unique sur le 1/3 bas-gauche de l'écran. Cherche plusieurs images, renvoie true si l'une est trouvée.
+pub fn scan_bottom_left_region(abs_paths: &[&str]) -> Result<bool> {
+    let targets: Vec<Mat> = abs_paths
+        .iter()
+        .map(|p| {
+            imgcodecs::imread(p, imgcodecs::IMREAD_GRAYSCALE)
+                .context(format!("ERREUR VISION: Impossible de lire '{}'", p))
+        })
+        .collect::<Result<Vec<_>>>()?;
+
+    let monitors = Monitor::all().context("Erreur: Impossible de lister les moniteurs")?;
+    let monitor = monitors.first().context("Erreur: Aucun moniteur détecté")?;
+
+    let screenshot = monitor.capture_image().context("Erreur capture d'écran")?;
+    let width = screenshot.width() as i32;
+    let height = screenshot.height() as i32;
+    let raw_pixels = screenshot.as_raw();
+
+    let mat_linear = Mat::from_slice(raw_pixels)?;
+    let mat_rgba = mat_linear.reshape(4, height)?;
+
+    let mut screen_gray = Mat::default();
+    imgproc::cvt_color(&mat_rgba, &mut screen_gray, imgproc::COLOR_RGBA2GRAY, 0)?;
+
+    let mut result = Mat::default();
+    for target in &targets {
+        imgproc::match_template(
+            &screen_gray,
+            target,
+            &mut result,
+            imgproc::TM_CCOEFF_NORMED,
+            &core::no_array(),
+        )?;
+
+        let mut max_val = 0.0;
+        core::min_max_loc(
+            &result,
+            None,
+            Some(&mut max_val),
+            None,
+            None,
+            &core::no_array(),
+        )?;
+
+        if max_val >= 0.9 {
+            return Ok(true);
+        }
+    }
+
+    Ok(false)
+}
 
 /// Fonction bloquante optimisée.
 /// Elle attend un chemin ABSOLU (résolu via Tauri) vers l'image.

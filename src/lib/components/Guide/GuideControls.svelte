@@ -6,6 +6,7 @@
     Waypoints,
     Keyboard,
     MousePointerClick,
+    Swords,
   } from "@lucide/svelte";
 
   let {
@@ -16,8 +17,10 @@
     autoPilot = $bindable(false),
     listenKeys = $bindable(true),
     mirrorClicks = $bindable(false),
+    combatWatcher = $bindable(false),
     onToggleListenKeys,
     onToggleMirrorClicks,
+    onToggleCombatWatcher,
   } = $props();
 </script>
 
@@ -74,6 +77,21 @@
     >
       <MousePointerClick
         class="size-5 drop-shadow-4xl {mirrorClicks
+          ? 'text-[#f7c882]'
+          : 'text-stone-300'}"
+      />
+    </Button>
+
+    <Button
+      variant="secondary"
+      onclick={onToggleCombatWatcher}
+      title="Détection combat (mode mini auto)"
+      class="{combatWatcher
+        ? ' bg-[#a09890b9] hover:bg-[#d1c4b7b2] '
+        : 'bg-[#615d59] hover:bg-[#968d84]'} size-9 cursor-pointer rounded-none h-full flex items-center justify-center select-none"
+    >
+      <Swords
+        class="size-5 drop-shadow-4xl {combatWatcher
           ? 'text-[#f7c882]'
           : 'text-stone-300'}"
       />

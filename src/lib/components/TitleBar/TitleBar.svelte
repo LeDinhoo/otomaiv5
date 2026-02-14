@@ -14,6 +14,8 @@
     RefreshCw,
     Pencil,
     Users,
+    ChevronsDown,
+    ChevronsUp,
   } from "@lucide/svelte";
 
   import { windowStore } from "$lib/stores/windowStore.svelte";
@@ -203,6 +205,18 @@
   </div>
 
   <div class="flex flex-row ml-auto h-full relative z-10">
+    <Button
+      variant="outline"
+      onclick={() => windowStore.toggleMini()}
+      title={windowStore.isMini ? "Restaurer la fenêtre" : "Mode compact"}
+      class="border-none rounded-none h-full w-8 bg-stone-800 hover:bg-stone-700 transition-colors"
+    >
+      {#if windowStore.isMini}
+        <ChevronsUp class="w-4 h-4 text-white" />
+      {:else}
+        <ChevronsDown class="w-4 h-4 text-white" />
+      {/if}
+    </Button>
     <Button
       variant="outline"
       onclick={minimize}

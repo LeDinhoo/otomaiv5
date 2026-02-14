@@ -1,4 +1,9 @@
 import { invoke } from "@tauri-apps/api/core";
+import {
+  getCurrentWindow,
+  LogicalSize,
+  LogicalPosition,
+} from "@tauri-apps/api/window";
 
 export type SyncStatus = "none" | "synced" | "recovering" | "lost";
 export type AppView = "dashboard" | "library" | "settings" | "team";
@@ -25,6 +30,12 @@ class WindowStore {
   teamMembers = $state<string[]>([]);
   teamWindows = $state<Record<string, TeamMemberState>>({});
 
+  // Mini mode
+  isMini = $state(false);
+  private _savedMaxPos: { x: number; y: number } | null = null;
+  private _savedMaxHeight: number | null = null;
+  private _savedMiniPos: { x: number; y: number } | null = null;
+
   // Token pour annuler les syncs obsolètes
   private _syncToken = 0;
 
@@ -34,6 +45,49 @@ class WindowStore {
 
   toggleView(view: AppView) {
     this.currentView = this.currentView === view ? "dashboard" : view;
+  }
+
+  async toggleMini() {
+    const win = getCurrentWindow();
+    const factor = await win.scaleFactor();
+    const size = await win.innerSize();
+    const pos = await win.outerPosition();
+    const width = Math.round(size.width / factor);
+    const curPos = {
+      x: Math.round(pos.x / factor),
+      y: Math.round(pos.y / factor),
+    };
+
+    if (this.isMini) {
+      // Sauvegarder la position mini
+      this._savedMiniPos = curPos;
+      // Restaurer la taille et position max
+      await win.setMinSize(new LogicalSize(330, 500));
+      await win.setSize(
+        new LogicalSize(width, this._savedMaxHeight ?? 900),
+      );
+      if (this._savedMaxPos) {
+        await win.setPosition(
+          new LogicalPosition(this._savedMaxPos.x, this._savedMaxPos.y),
+        );
+      }
+      await win.setResizable(true);
+      this.isMini = false;
+    } else {
+      // Sauvegarder la position et hauteur max
+      this._savedMaxPos = curPos;
+      this._savedMaxHeight = Math.round(size.height / factor);
+      // Passer en mode mini
+      await win.setResizable(false);
+      await win.setMinSize(null);
+      await win.setSize(new LogicalSize(width, 33));
+      if (this._savedMiniPos) {
+        await win.setPosition(
+          new LogicalPosition(this._savedMiniPos.x, this._savedMiniPos.y),
+        );
+      }
+      this.isMini = true;
+    }
   }
 
   async performWindowSync(nameToFind?: string) {

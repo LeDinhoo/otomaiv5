@@ -365,6 +365,10 @@ pub struct ActiveSession {
     pub cancel_recovery: Arc<AtomicBool>,
 }
 
+pub struct CombatWatcherState {
+    pub active: Arc<AtomicBool>,
+}
+
 #[tauri::command]
 fn greet(name: &str) -> String {
     format!("Hello, {}! You've been greeted from Rust!", name)
@@ -610,6 +614,99 @@ fn parse_guide_step(html_content: String) -> GuideResult {
     GuideParser::parse_step(&html_content)
 }
 
+fn resolve_resource_path(app_handle: &AppHandle, relative: &str) -> Result<String, String> {
+    let resource_path = app_handle.path()
+        .resolve(relative, tauri::path::BaseDirectory::Resource)
+        .map_err(|e| format!("Impossible de résoudre '{}': {}", relative, e))?;
+
+    let path_str = resource_path.to_str()
+        .ok_or("Erreur conversion chemin")?;
+
+    Ok(if cfg!(windows) {
+        path_str.trim_start_matches("\\\\?\\").to_string()
+    } else {
+        path_str.to_string()
+    })
+}
+
+#[tauri::command]
+async fn start_combat_watcher(
+    combat_start_image: String,
+    combat_end_images: Vec<String>,
+    app_handle: AppHandle,
+    state: tauri::State<'_, CombatWatcherState>,
+) -> Result<String, String> {
+    if state.active.load(Ordering::Relaxed) {
+        return Ok("Watcher déjà actif".to_string());
+    }
+
+    let start_path = resolve_resource_path(&app_handle, &combat_start_image)?;
+    let end_paths: Vec<String> = combat_end_images
+        .iter()
+        .map(|p| resolve_resource_path(&app_handle, p))
+        .collect::<Result<Vec<_>, _>>()?;
+
+    state.active.store(true, Ordering::Relaxed);
+    let active_flag = state.active.clone();
+
+    std::thread::spawn(move || {
+        println!("👁️ [Combat Watcher] Cycle démarré");
+
+        while active_flag.load(Ordering::Relaxed) {
+            // --- Phase 1 : Détection début de combat (top 1/10, toutes les 500ms) ---
+            println!("👁️ [Combat Watcher] Phase: recherche début combat...");
+            loop {
+                if !active_flag.load(Ordering::Relaxed) { return; }
+
+                match methods::vision::scan_top_region(&start_path) {
+                    Ok(true) => {
+                        println!("⚔️ [Combat Watcher] Combat détecté !");
+                        let _ = app_handle.emit("combat-detected", true);
+                        // Pause pour laisser la transition de combat se faire
+                        std::thread::sleep(std::time::Duration::from_secs(3));
+                        break;
+                    }
+                    Ok(false) => {}
+                    Err(e) => eprintln!("❌ [Combat Watcher] Erreur scan start: {}", e),
+                }
+                std::thread::sleep(std::time::Duration::from_millis(500));
+            }
+
+            // --- Phase 2 : Détection fin de combat (bottom-left 1/3, toutes les 1s) ---
+            println!("👁️ [Combat Watcher] Phase: recherche fin combat...");
+            loop {
+                if !active_flag.load(Ordering::Relaxed) { return; }
+
+                let path_refs: Vec<&str> = end_paths.iter().map(|s| s.as_str()).collect();
+                match methods::vision::scan_bottom_left_region(&path_refs) {
+                    Ok(true) => {
+                        println!("🏁 [Combat Watcher] Fin de combat détectée !");
+                        let _ = app_handle.emit("combat-ended", true);
+                        // Pause avant de relancer le cycle
+                        std::thread::sleep(std::time::Duration::from_secs(2));
+                        break;
+                    }
+                    Ok(false) => {}
+                    Err(e) => eprintln!("❌ [Combat Watcher] Erreur scan end: {}", e),
+                }
+                std::thread::sleep(std::time::Duration::from_secs(1));
+            }
+        }
+
+        println!("🛑 [Combat Watcher] Cycle arrêté");
+    });
+
+    Ok("Watcher démarré".to_string())
+}
+
+#[tauri::command]
+fn stop_combat_watcher(
+    state: tauri::State<'_, CombatWatcherState>,
+) -> Result<String, String> {
+    state.active.store(false, Ordering::Relaxed);
+    Ok("Watcher arrêté".to_string())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let listener_state: SharedKeyListenerState = Arc::new(Mutex::new(KeyListenerState {
@@ -631,6 +728,10 @@ pub fn run() {
         .manage(listener_state)
         .manage(click_mirror_state)
         .plugin(tauri_plugin_notification::init())
+        // COMBAT WATCHER
+        .manage(CombatWatcherState {
+            active: Arc::new(AtomicBool::new(false)),
+        })
         // 1. GESTION DE SESSION
         .manage(ActiveSession {
             window_title: Mutex::new(None),
@@ -671,7 +772,9 @@ pub fn run() {
             methods::click_mirror::set_click_mirror,
             send_chat_command,
             get_settings,
-            save_settings_cmd
+            save_settings_cmd,
+            start_combat_watcher,
+            stop_combat_watcher
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

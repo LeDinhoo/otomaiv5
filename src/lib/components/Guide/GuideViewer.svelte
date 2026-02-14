@@ -17,6 +17,7 @@
   let listenKeys = $state(false);
   let autoPilot = $state(false);
   let mirrorClicks = $state(false);
+  let combatWatcher = $state(false);
   let unlistenHandle: (() => void) | undefined;
   let currentAnalysis = $state(null);
 
@@ -120,6 +121,20 @@
     }
   });
 
+  async function updateCombatWatcher() {
+    if (combatWatcher) {
+      await invoke("start_combat_watcher", {
+        combatStartImage: "resources/ui/combat_start.png",
+        combatEndImages: [
+          "resources/ui/combat_end_1.png",
+          "resources/ui/combat_end_2.png",
+        ],
+      });
+    } else {
+      await invoke("stop_combat_watcher");
+    }
+  }
+
   onDestroy(() => {
     invoke("set_key_listener", { active: false, keys: [] });
     invoke("set_click_mirror", {
@@ -127,6 +142,7 @@
       leaderTitle: "",
       followerTitles: [],
     });
+    invoke("stop_combat_watcher");
     if (unlistenHandle) unlistenHandle();
   });
 
@@ -172,6 +188,7 @@
     bind:autoPilot
     bind:listenKeys
     bind:mirrorClicks
+    bind:combatWatcher
     onToggleListenKeys={() => {
       listenKeys = !listenKeys;
       updateKeyListener();
@@ -179,6 +196,10 @@
     onToggleMirrorClicks={() => {
       mirrorClicks = !mirrorClicks;
       updateClickMirror();
+    }}
+    onToggleCombatWatcher={() => {
+      combatWatcher = !combatWatcher;
+      updateCombatWatcher();
     }}
   />
 </div>
