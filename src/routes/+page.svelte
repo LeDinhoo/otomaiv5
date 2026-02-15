@@ -3,6 +3,7 @@
   import { invoke } from "@tauri-apps/api/core";
   import { listen, emit } from "@tauri-apps/api/event";
   import { getCurrentWindow } from "@tauri-apps/api/window";
+  import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
   import TitleBar from "$lib/components/TitleBar/TitleBar.svelte";
   import LibraryPage from "$lib/components/Settings/LibraryPage.svelte";
   import SettingsPage from "$lib/components/Settings/SettingsPage.svelte";
@@ -20,18 +21,24 @@
     await profileStore.init();
     await windowStore.restoreMainWindow();
 
-    const unlistenCombatStart = await listen("combat-detected", () => {
+    const unlistenCombatStart = await listen("combat-detected", async () => {
       invoke("pause_click_mirror", { paused: true });
       if (!windowStore.isMini) {
         windowStore.toggleMini();
       }
+      // Cacher la focus overlay pendant le combat
+      const overlay = await WebviewWindow.getByLabel("focus-overlay");
+      if (overlay) await overlay.hide();
     });
 
-    const unlistenCombatEnd = await listen("combat-ended", () => {
+    const unlistenCombatEnd = await listen("combat-ended", async () => {
       invoke("pause_click_mirror", { paused: false });
       if (windowStore.isMini) {
         windowStore.toggleMini();
       }
+      // Réafficher la focus overlay après le combat
+      const overlay = await WebviewWindow.getByLabel("focus-overlay");
+      if (overlay) await overlay.show();
     });
 
     // Quand l'overlay focus est prêt, renvoyer le breed mapping
