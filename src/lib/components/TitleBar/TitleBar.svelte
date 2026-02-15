@@ -85,7 +85,7 @@
       <Settings class="w-4 h-4" />
     </Button>
 
-    <Button
+    <!-- <Button
       variant="ghost"
       size="icon"
       class="h-6 w-6 hover:bg-stone-700"
@@ -98,7 +98,7 @@
         alt="Archimonstre"
         class="w-5 h-5 -translate-y-[1.5px] hover:opacity-100 opacity-60"
       />
-    </Button>
+    </Button> -->
 
     <!-- Bouton Team -->
     <Button

@@ -1,4 +1,8 @@
 use windows::core::{HSTRING, PCWSTR};
+use windows::Win32::UI::Input::KeyboardAndMouse::{
+    SendInput, INPUT, INPUT_0, INPUT_KEYBOARD, KEYBDINPUT,
+    KEYBD_EVENT_FLAGS, KEYEVENTF_KEYUP, VK_MENU,
+};
 use windows::Win32::UI::WindowsAndMessaging::{
     FindWindowW, IsIconic, SetForegroundWindow, ShowWindow, SW_RESTORE,
 };
@@ -15,11 +19,8 @@ impl WindowManager {
             let window_title = HSTRING::from(title);
             let title_pcwstr = PCWSTR::from_raw(window_title.as_ptr());
 
-            // 1. On tente de trouver la fenêtre
-            // On retire le '?' ici pour gérer le résultat manuellement
             let result = FindWindowW(None, title_pcwstr);
 
-            // 2. Vérification si le résultat est une erreur réelle ou un handle vide
             let hwnd = match result {
                 Ok(h) if h.0.is_null() => {
                     return Err(format!(
@@ -31,10 +32,36 @@ impl WindowManager {
                 Err(e) => return Err(format!("Erreur système Win32 : {}", e)),
             };
 
-            // 3. Suite de la logique (Focus)
             if IsIconic(hwnd).as_bool() {
                 let _ = ShowWindow(hwnd, SW_RESTORE);
             }
+
+            // Trick ALT pour débloquer SetForegroundWindow
+            let alt_down = INPUT {
+                r#type: INPUT_KEYBOARD,
+                Anonymous: INPUT_0 {
+                    ki: KEYBDINPUT {
+                        wVk: VK_MENU,
+                        wScan: 0,
+                        dwFlags: KEYBD_EVENT_FLAGS(0),
+                        time: 0,
+                        dwExtraInfo: 0,
+                    },
+                },
+            };
+            let alt_up = INPUT {
+                r#type: INPUT_KEYBOARD,
+                Anonymous: INPUT_0 {
+                    ki: KEYBDINPUT {
+                        wVk: VK_MENU,
+                        wScan: 0,
+                        dwFlags: KEYEVENTF_KEYUP,
+                        time: 0,
+                        dwExtraInfo: 0,
+                    },
+                },
+            };
+            SendInput(&[alt_down, alt_up], std::mem::size_of::<INPUT>() as i32);
 
             let success = SetForegroundWindow(hwnd);
 
@@ -44,7 +71,7 @@ impl WindowManager {
                     title
                 ))
             } else {
-                Err("Le focus a été refusé par Windows (l'application doit être active pour changer le focus).".to_string())
+                Err("Le focus a été refusé par Windows.".to_string())
             }
         }
     }

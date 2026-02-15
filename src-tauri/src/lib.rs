@@ -686,7 +686,7 @@ async fn start_combat_watcher(
                         std::thread::sleep(std::time::Duration::from_secs(2));
                         break;
                     }
-                    Ok(false) => {}
+                    Ok(false) => println!("👁️ [Combat Watcher] Scan fin combat... (pas trouvé)"),
                     Err(e) => eprintln!("❌ [Combat Watcher] Erreur scan end: {}", e),
                 }
                 std::thread::sleep(std::time::Duration::from_secs(1));
@@ -715,9 +715,9 @@ pub fn run() {
     }));
 
     let click_mirror_state: SharedClickMirrorState = Arc::new(Mutex::new(ClickMirrorState {
-        active: false,
-        leader_title: String::new(),
-        follower_titles: vec![],
+        paused: false,
+        titles: vec![],
+        focus_keybinds: std::collections::HashMap::new(),
     }));
 
     tauri::Builder::default()
@@ -751,7 +751,7 @@ pub fn run() {
             key_listener::init_background_listener(app.handle());
 
             let mirror_state = app.state::<SharedClickMirrorState>();
-            click_mirror::init_click_mirror(mirror_state.inner().clone());
+            click_mirror::init_click_mirror(mirror_state.inner().clone(), app.handle().clone());
 
             Ok(())
         })
@@ -770,6 +770,8 @@ pub fn run() {
             execute_step_automation,
             methods::key_listener::set_key_listener,
             methods::click_mirror::set_click_mirror,
+            methods::click_mirror::pause_click_mirror,
+            methods::click_mirror::set_focus_keybinds,
             send_chat_command,
             get_settings,
             save_settings_cmd,

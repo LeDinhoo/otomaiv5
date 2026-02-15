@@ -48,8 +48,8 @@ features = [
 ]
 
 [profile.release]
-panic = "abort"     # En cas de crash, on coupe tout (plus léger)
-codegen-units = 1   # Compile plus lentement, mais le code final est mieux optimisé
-lto = true          # "Link Time Optimization" : Fusionne tout le code pour l'optimiser en bloc
-opt-level = 3       # Niveau d'optimisation maximum
-strip = true        # Retire les infos de debug pour réduire la taille de l'exe
+panic = "abort"
+codegen-units = 4
+lto = "thin"
+opt-level = 2
+strip = true

@@ -1,18 +1,21 @@
-use device_query::{DeviceQuery, DeviceState, MouseState};
+use device_query::{DeviceQuery, DeviceState, Keycode};
+use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 use windows::core::{HSTRING, PCWSTR};
-use windows::Win32::Foundation::{HWND, LPARAM, RECT, WPARAM};
+use windows::Win32::Foundation::{HWND, LPARAM, POINT, RECT, WPARAM};
 use windows::Win32::UI::WindowsAndMessaging::{
     FindWindowW, GetForegroundWindow, GetWindowRect, GetWindowTextW, PostMessageW,
     WM_LBUTTONDOWN, WM_LBUTTONUP,
 };
+use crate::window_manager::WindowManager;
+use tauri::{AppHandle, Emitter};
 
 pub struct ClickMirrorState {
-    pub active: bool,
-    pub leader_title: String,
-    pub follower_titles: Vec<String>,
+    pub paused: bool,
+    pub titles: Vec<String>,
+    pub focus_keybinds: HashMap<String, String>, // key name -> window title
 }
 
 pub type SharedClickMirrorState = Arc<Mutex<ClickMirrorState>>;
@@ -20,104 +23,215 @@ pub type SharedClickMirrorState = Arc<Mutex<ClickMirrorState>>;
 #[tauri::command]
 pub fn set_click_mirror(
     state: tauri::State<'_, SharedClickMirrorState>,
-    active: bool,
-    leader_title: String,
-    follower_titles: Vec<String>,
+    titles: Vec<String>,
 ) -> Result<String, String> {
     let mut data = state.lock().map_err(|_| "Failed to lock state")?;
-    data.active = active;
-    data.leader_title = leader_title;
-    data.follower_titles = follower_titles;
+    data.titles = titles;
+    Ok(format!("Click mirror: {} fenêtres", data.titles.len()))
+}
 
-    Ok(if active {
-        format!("Click mirror activé ({} suiveurs)", data.follower_titles.len())
+#[tauri::command]
+pub fn pause_click_mirror(
+    state: tauri::State<'_, SharedClickMirrorState>,
+    paused: bool,
+) -> Result<String, String> {
+    let mut data = state.lock().map_err(|_| "Failed to lock state")?;
+    data.paused = paused;
+    Ok(if paused {
+        "Click mirror en pause".to_string()
     } else {
-        "Click mirror désactivé".to_string()
+        "Click mirror repris".to_string()
     })
 }
 
-pub fn init_click_mirror(state: SharedClickMirrorState) {
+#[tauri::command]
+pub fn set_focus_keybinds(
+    state: tauri::State<'_, SharedClickMirrorState>,
+    keybinds: HashMap<String, String>,
+) -> Result<String, String> {
+    let mut data = state.lock().map_err(|_| "Failed to lock state")?;
+    data.focus_keybinds = keybinds;
+    Ok(format!("Focus keybinds: {} raccourcis", data.focus_keybinds.len()))
+}
+
+fn find_hwnd_by_title(title: &str) -> Option<HWND> {
+    unsafe {
+        let window_title = HSTRING::from(title);
+        let title_pcwstr = PCWSTR::from_raw(window_title.as_ptr());
+        match FindWindowW(None, title_pcwstr) {
+            Ok(h) if !h.0.is_null() => Some(h),
+            _ => None,
+        }
+    }
+}
+
+fn get_window_rect(hwnd: HWND) -> Option<RECT> {
+    unsafe {
+        let mut rect = RECT::default();
+        if GetWindowRect(hwnd, &mut rect).is_ok() {
+            Some(rect)
+        } else {
+            None
+        }
+    }
+}
+
+fn cursor_relative_to_window(cursor: &POINT, rect: &RECT) -> (i32, i32) {
+    (cursor.x - rect.left, cursor.y - rect.top)
+}
+
+fn post_click_to_window(hwnd: HWND, rel_x: i32, rel_y: i32) {
+    unsafe {
+        let lparam = LPARAM((rel_y << 16 | (rel_x & 0xFFFF)) as isize);
+        let wparam = WPARAM(0x0001); // MK_LBUTTON
+        let _ = PostMessageW(hwnd, WM_LBUTTONDOWN, wparam, lparam);
+        thread::sleep(Duration::from_millis(10));
+        let _ = PostMessageW(hwnd, WM_LBUTTONUP, WPARAM(0), lparam);
+    }
+}
+
+/// Convertit un nom de touche (depuis le frontend) en Keycode device_query
+fn key_name_to_keycode(name: &str) -> Option<Keycode> {
+    match name.to_uppercase().as_str() {
+        "F1" => Some(Keycode::F1),
+        "F2" => Some(Keycode::F2),
+        "F3" => Some(Keycode::F3),
+        "F4" => Some(Keycode::F4),
+        "F5" => Some(Keycode::F5),
+        "F6" => Some(Keycode::F6),
+        "F7" => Some(Keycode::F7),
+        "F8" => Some(Keycode::F8),
+        "F9" => Some(Keycode::F9),
+        "F10" => Some(Keycode::F10),
+        "F11" => Some(Keycode::F11),
+        "F12" => Some(Keycode::F12),
+        "1" | "DIGIT1" => Some(Keycode::Key1),
+        "2" | "DIGIT2" => Some(Keycode::Key2),
+        "3" | "DIGIT3" => Some(Keycode::Key3),
+        "4" | "DIGIT4" => Some(Keycode::Key4),
+        "5" | "DIGIT5" => Some(Keycode::Key5),
+        "6" | "DIGIT6" => Some(Keycode::Key6),
+        "7" | "DIGIT7" => Some(Keycode::Key7),
+        "8" | "DIGIT8" => Some(Keycode::Key8),
+        "9" | "DIGIT9" => Some(Keycode::Key9),
+        "0" | "DIGIT0" => Some(Keycode::Key0),
+        "NUMPAD1" => Some(Keycode::Numpad1),
+        "NUMPAD2" => Some(Keycode::Numpad2),
+        "NUMPAD3" => Some(Keycode::Numpad3),
+        "NUMPAD4" => Some(Keycode::Numpad4),
+        "NUMPAD5" => Some(Keycode::Numpad5),
+        "NUMPAD6" => Some(Keycode::Numpad6),
+        "NUMPAD7" => Some(Keycode::Numpad7),
+        "NUMPAD8" => Some(Keycode::Numpad8),
+        "NUMPAD9" => Some(Keycode::Numpad9),
+        "NUMPAD0" => Some(Keycode::Numpad0),
+        _ => None,
+    }
+}
+
+fn get_window_title(hwnd: HWND) -> Option<String> {
+    unsafe {
+        let mut buf = [0u16; 512];
+        let len = GetWindowTextW(hwnd, &mut buf);
+        if len > 0 {
+            Some(String::from_utf16_lossy(&buf[..len as usize]))
+        } else {
+            None
+        }
+    }
+}
+
+pub fn init_click_mirror(state: SharedClickMirrorState, app_handle: AppHandle) {
     thread::spawn(move || {
         let device_state = DeviceState::new();
-        let mut prev_left = false;
+        let wm = WindowManager::new();
+        let mut prev_middle = false;
+        let mut prev_keys: Vec<Keycode> = vec![];
+        let mut prev_focus_title: Option<String> = None;
 
         loop {
-            let (active, leader, followers) = {
+            let (paused, titles, focus_keybinds) = {
                 let lock = state.lock().unwrap();
-                (
-                    lock.active,
-                    lock.leader_title.clone(),
-                    lock.follower_titles.clone(),
-                )
+                (lock.paused, lock.titles.clone(), lock.focus_keybinds.clone())
             };
 
-            if active && !leader.is_empty() && !followers.is_empty() {
-                let mouse: MouseState = device_state.get_mouse();
-                let left_pressed = mouse.button_pressed.get(1).copied().unwrap_or(false);
+            // --- Focus tracking (émet focus-changed quand la fenêtre active change) ---
+            if !titles.is_empty() {
+                unsafe {
+                    let fg_hwnd = GetForegroundWindow();
+                    let is_tracked = titles.iter().any(|t| {
+                        find_hwnd_by_title(t).map_or(false, |h| h == fg_hwnd)
+                    });
 
-                // Détection front montant (clic)
-                if left_pressed && !prev_left {
-                    if is_leader_focused(&leader) {
-                        let (mx, my) = mouse.coords;
-                        if let Some((rx, ry)) = get_relative_pos(&leader, mx, my) {
-                            for title in &followers {
-                                send_click_to_window(title, rx, ry);
+                    let current_title = if is_tracked {
+                        get_window_title(fg_hwnd)
+                    } else {
+                        None
+                    };
+
+                    if current_title != prev_focus_title {
+                        prev_focus_title = current_title.clone();
+                        let _ = app_handle.emit("focus-changed", current_title.unwrap_or_default());
+                    }
+                }
+            }
+
+            // --- Focus keybinds (toujours actif, même si paused) ---
+            if !focus_keybinds.is_empty() {
+                let current_keys = device_state.get_keys();
+
+                for (key_name, window_title) in &focus_keybinds {
+                    if let Some(keycode) = key_name_to_keycode(key_name) {
+                        // Front montant uniquement
+                        if current_keys.contains(&keycode) && !prev_keys.contains(&keycode) {
+                            let _ = wm.focus_by_title(window_title);
+                        }
+                    }
+                }
+
+                prev_keys = current_keys;
+            } else {
+                prev_keys.clear();
+            }
+
+            // --- Click mirror ---
+            if !paused && titles.len() > 1 {
+                let mouse = device_state.get_mouse();
+                let middle = mouse.button_pressed.get(3).copied().unwrap_or(false);
+
+                if middle && !prev_middle {
+                    unsafe {
+                        let fg_hwnd = GetForegroundWindow();
+
+                        let is_tracked = titles.iter().any(|t| {
+                            find_hwnd_by_title(t).map_or(false, |h| h == fg_hwnd)
+                        });
+
+                        if is_tracked {
+                            let cursor = POINT {
+                                x: mouse.coords.0,
+                                y: mouse.coords.1,
+                            };
+
+                            if let Some(src_rect) = get_window_rect(fg_hwnd) {
+                                let (rel_x, rel_y) = cursor_relative_to_window(&cursor, &src_rect);
+
+                                for title in &titles {
+                                    if let Some(target_hwnd) = find_hwnd_by_title(title) {
+                                        post_click_to_window(target_hwnd, rel_x, rel_y);
+                                    }
+                                }
                             }
                         }
                     }
                 }
 
-                prev_left = left_pressed;
+                prev_middle = middle;
             } else {
-                prev_left = false;
+                prev_middle = false;
             }
 
             thread::sleep(Duration::from_millis(15));
         }
     });
-}
-
-fn is_leader_focused(leader_title: &str) -> bool {
-    unsafe {
-        let fg = GetForegroundWindow();
-        if fg == HWND::default() {
-            return false;
-        }
-        let mut buf = [0u16; 512];
-        let len = GetWindowTextW(fg, &mut buf);
-        if len == 0 {
-            return false;
-        }
-        let title = String::from_utf16_lossy(&buf[..len as usize]);
-        title == leader_title
-    }
-}
-
-fn get_relative_pos(title: &str, screen_x: i32, screen_y: i32) -> Option<(i32, i32)> {
-    unsafe {
-        let htitle = HSTRING::from(title);
-        let hwnd = FindWindowW(None, PCWSTR::from_raw(htitle.as_ptr())).ok()?;
-        if hwnd.0.is_null() {
-            return None;
-        }
-        let mut rect = RECT::default();
-        GetWindowRect(hwnd, &mut rect).ok()?;
-        Some((screen_x - rect.left, screen_y - rect.top))
-    }
-}
-
-fn send_click_to_window(title: &str, rel_x: i32, rel_y: i32) {
-    unsafe {
-        let htitle = HSTRING::from(title);
-        let hwnd = match FindWindowW(None, PCWSTR::from_raw(htitle.as_ptr())) {
-            Ok(h) if !h.0.is_null() => h,
-            _ => return,
-        };
-
-        let lparam = LPARAM(((rel_y as u32 & 0xFFFF) << 16 | (rel_x as u32 & 0xFFFF)) as isize);
-
-        let _ = PostMessageW(hwnd, WM_LBUTTONDOWN, WPARAM(1), lparam);
-        thread::sleep(Duration::from_millis(30));
-        let _ = PostMessageW(hwnd, WM_LBUTTONUP, WPARAM(0), lparam);
-    }
 }

@@ -17,6 +17,10 @@ export interface AppProfile {
   checkboxStates: Record<string, Record<number, boolean[]>>;
   teamMode: boolean;
   teamMembers: string[];
+  breedIcon: number | null;
+  teamMemberBreeds: Record<string, number>;
+  leaderKeybind: string | null;
+  teamMemberKeybinds: Record<string, string>;
 }
 
 export interface ProfileEntry {
@@ -43,6 +47,10 @@ const DEFAULT_PROFILE: AppProfile = {
   checkboxStates: {},
   teamMode: false,
   teamMembers: [],
+  breedIcon: null,
+  teamMemberBreeds: {},
+  leaderKeybind: null,
+  teamMemberKeybinds: {},
 };
 
 const DEFAULT_INDEX: ProfileIndex = {

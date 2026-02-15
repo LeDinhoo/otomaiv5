@@ -592,7 +592,7 @@ pub fn execute_step_automation(
     win_manager.focus_by_title(window_title)?;
     println!("✅ [Automation] Fenêtre '{}' focus.", window_title);
 
-    thread::sleep(Duration::from_millis(100));
+    // thread::sleep(Duration::from_millis(100));
 
     match step.macro_type.as_str() {
         "classic" => {

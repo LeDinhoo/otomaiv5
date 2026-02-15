@@ -48,6 +48,10 @@ class ProfileStore {
       checkboxStates: $state.snapshot(guideStore.checkboxStates),
       teamMode: windowStore.teamMode,
       teamMembers: $state.snapshot(windowStore.teamMembers),
+      breedIcon: windowStore.breedIcon,
+      teamMemberBreeds: $state.snapshot(windowStore.teamMemberBreeds),
+      leaderKeybind: windowStore.leaderKeybind,
+      teamMemberKeybinds: $state.snapshot(windowStore.teamMemberKeybinds),
     });
   }
 
@@ -86,6 +90,10 @@ class ProfileStore {
       checkboxStates: {},
       teamMode: false,
       teamMembers: [],
+      breedIcon: null,
+      teamMemberBreeds: {},
+      leaderKeybind: null,
+      teamMemberKeybinds: {},
     });
 
     await this._saveIndex();
@@ -125,6 +133,10 @@ class ProfileStore {
     windowStore.restoreTeamFromProfile(
       profile.teamMode ?? false,
       profile.teamMembers ?? [],
+      profile.breedIcon ?? null,
+      profile.teamMemberBreeds ?? {},
+      profile.leaderKeybind ?? null,
+      profile.teamMemberKeybinds ?? {},
     );
     guideStore.restoreFromProfile(
       profile.guideProgress || {},
