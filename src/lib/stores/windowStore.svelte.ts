@@ -5,6 +5,12 @@ import {
   LogicalPosition,
 } from "@tauri-apps/api/window";
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
+import {
+  saveWindowLayout,
+  loadWindowLayout,
+  type WindowLayout,
+  type WindowRect,
+} from "$lib/services/profileService";
 
 export type SyncStatus = "none" | "synced" | "recovering" | "lost";
 export type AppView = "dashboard" | "library" | "settings" | "team";
@@ -261,13 +267,18 @@ class WindowStore {
   async openFocusOverlay() {
     try {
       const existing = await WebviewWindow.getByLabel("focus-overlay");
-      if (existing) return; // déjà ouverte
+      if (existing) return;
+
+      const layout = await loadWindowLayout();
+      const saved = layout.focusOverlay;
 
       new WebviewWindow("focus-overlay", {
         url: "/focus-overlay",
         title: "Focus",
-        width: 280,
-        height: 36,
+        width: saved?.width ?? 280,
+        height: saved?.height ?? 36,
+        x: saved?.x,
+        y: saved?.y,
         decorations: false,
         resizable: false,
         alwaysOnTop: true,
@@ -287,6 +298,57 @@ class WindowStore {
       if (win) await win.close();
     } catch (e) {
       console.error("Erreur fermeture focus overlay:", e);
+    }
+  }
+
+  /** Sauvegarder la position/taille de toutes les fenêtres */
+  async saveLayout() {
+    try {
+      const mainWin = getCurrentWindow();
+      const factor = await mainWin.scaleFactor();
+      const mainSize = await mainWin.innerSize();
+      const mainPos = await mainWin.outerPosition();
+
+      const layout: WindowLayout = {
+        main: {
+          x: Math.round(mainPos.x / factor),
+          y: Math.round(mainPos.y / factor),
+          width: Math.round(mainSize.width / factor),
+          height: Math.round(mainSize.height / factor),
+        },
+      };
+
+      const overlayWin = await WebviewWindow.getByLabel("focus-overlay");
+      if (overlayWin) {
+        const oFactor = await overlayWin.scaleFactor();
+        const oSize = await overlayWin.innerSize();
+        const oPos = await overlayWin.outerPosition();
+        layout.focusOverlay = {
+          x: Math.round(oPos.x / oFactor),
+          y: Math.round(oPos.y / oFactor),
+          width: Math.round(oSize.width / oFactor),
+          height: Math.round(oSize.height / oFactor),
+        };
+      }
+
+      await saveWindowLayout(layout);
+    } catch (e) {
+      console.error("Erreur sauvegarde layout:", e);
+    }
+  }
+
+  /** Restaurer la position/taille de la fenêtre principale */
+  async restoreMainWindow() {
+    try {
+      const layout = await loadWindowLayout();
+      const saved = layout.main;
+      if (!saved) return;
+
+      const win = getCurrentWindow();
+      await win.setPosition(new LogicalPosition(saved.x, saved.y));
+      await win.setSize(new LogicalSize(saved.width, saved.height));
+    } catch (e) {
+      console.error("Erreur restauration layout:", e);
     }
   }
 

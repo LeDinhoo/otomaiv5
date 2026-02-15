@@ -18,6 +18,7 @@
 
   onMount(async () => {
     await profileStore.init();
+    await windowStore.restoreMainWindow();
 
     const unlistenCombatStart = await listen("combat-detected", () => {
       invoke("pause_click_mirror", { paused: true });
@@ -38,8 +39,9 @@
       emitBreedMapping();
     });
 
-    // Fermer l'overlay focus quand la fenêtre principale se ferme
+    // Sauvegarder le layout et fermer l'overlay quand la fenêtre principale se ferme
     const unlistenClose = await getCurrentWindow().onCloseRequested(async () => {
+      await windowStore.saveLayout();
       await windowStore.closeFocusOverlay();
     });
 

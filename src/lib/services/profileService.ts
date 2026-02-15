@@ -38,6 +38,19 @@ export interface ProfileIndex {
 const INDEX_FILE = "profiles.json";
 const PROFILES_DIR = "profiles";
 const LEGACY_FILE = "user_profile.json";
+const LAYOUT_FILE = "window_layout.json";
+
+export interface WindowRect {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+export interface WindowLayout {
+  main?: WindowRect;
+  focusOverlay?: WindowRect;
+}
 
 const DEFAULT_PROFILE: AppProfile = {
   characterName: "Mon Personnage",
@@ -187,4 +200,15 @@ export function generateProfileId(
   let i = 2;
   while (existingIds.includes(`${base}-${i}`)) i++;
   return `${base}-${i}`;
+}
+
+// --- Window Layout ---
+
+export async function saveWindowLayout(layout: WindowLayout) {
+  await writeJson(LAYOUT_FILE, layout);
+}
+
+export async function loadWindowLayout(): Promise<WindowLayout> {
+  const data = await readJson<WindowLayout>(LAYOUT_FILE);
+  return data ?? {};
 }
