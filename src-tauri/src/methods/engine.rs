@@ -1,6 +1,7 @@
 use super::press_key::press_key_multiple_times;
 use super::type_text::type_text_fast;
 use crate::mouse_manager::MouseManager;
+use crate::window_manager::WindowManager;
 use std::thread;
 use std::time::Duration;
 use super::vision;
@@ -75,6 +76,71 @@ pub fn execute(app_handle: &AppHandle, actions: Vec<Action>, window_title: &str)
         
         // Petit délai de sécurité entre les briques
         thread::sleep(Duration::from_millis(50));
+    }
+    Ok(())
+}
+
+// 3. L'Exécuteur Entrelacé (multi-fenêtres)
+// Chaque micro-action est exécutée sur TOUTES les fenêtres avant de passer à la suivante.
+// Les Wait sont payés UNE SEULE FOIS (toutes les fenêtres en bénéficient).
+pub fn execute_interleaved(
+    app_handle: &AppHandle,
+    actions: Vec<Action>,
+    window_titles: &[String],
+) -> Result<(), String> {
+    let mouse = MouseManager::new();
+    let win_manager = WindowManager::new();
+
+    for action in &actions {
+        match action {
+            // Wait : on attend UNE SEULE FOIS (toutes les fenêtres chargent en parallèle)
+            Action::Wait(ms) => {
+                thread::sleep(Duration::from_millis(*ms));
+            }
+
+            // WaitForImage : focus chaque fenêtre puis attendre l'image dessus
+            Action::WaitForImage { path } => {
+                let resource_path = app_handle.path()
+                    .resolve(path, BaseDirectory::Resource)
+                    .map_err(|e| format!("Impossible de résoudre '{}': {}", path, e))?;
+                let path_str = resource_path.to_str()
+                    .ok_or_else(|| "Erreur conversion chemin".to_string())?;
+                let fixed_path = if cfg!(windows) {
+                    path_str.trim_start_matches("\\\\?\\")
+                } else {
+                    path_str
+                };
+
+                for title in window_titles {
+                    win_manager.focus_by_title(title)?;
+                    vision::wait_for_image(fixed_path)
+                        .map_err(|e| format!("Echec vision : {}", e))?;
+                }
+            }
+
+            // Click, Type, Press : focus chaque fenêtre et exécuter la micro-action
+            Action::Click((x, y)) => {
+                for title in window_titles {
+                    win_manager.focus_by_title(title)?;
+                    mouse.click_at_position(title, *x, *y)?;
+                    thread::sleep(Duration::from_millis(50));
+                }
+            }
+            Action::Type(text) => {
+                for title in window_titles {
+                    win_manager.focus_by_title(title)?;
+                    type_text_fast(text)?;
+                    thread::sleep(Duration::from_millis(50));
+                }
+            }
+            Action::Press(k, count, interval) => {
+                for title in window_titles {
+                    win_manager.focus_by_title(title)?;
+                    press_key_multiple_times(k, *count, Some(*interval))?;
+                    thread::sleep(Duration::from_millis(50));
+                }
+            }
+        }
     }
     Ok(())
 }

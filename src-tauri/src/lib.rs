@@ -564,6 +564,32 @@ async fn execute_step_automation(
 }
 
 #[tauri::command]
+async fn execute_step_automation_chained(
+    app_handle: AppHandle,
+    step: GuideResult,
+    window_titles: Vec<String>,
+    settings_state: tauri::State<'_, SettingsState>,
+) -> Result<String, String> {
+    let settings = settings_state.0.lock().unwrap().clone();
+    let app_handle_clone = app_handle.clone();
+
+    let result = std::thread::spawn(move || {
+        methods::automations::execute_step_automation_chained(
+            &app_handle_clone,
+            &step,
+            &window_titles,
+            &settings,
+        )
+    })
+    .join();
+
+    match result {
+        Ok(res) => res,
+        Err(_) => Err("Crash critique thread.".to_string()),
+    }
+}
+
+#[tauri::command]
 fn save_settings_cmd(
     app: tauri::AppHandle,
     state: tauri::State<'_, SettingsState>,
@@ -768,6 +794,7 @@ pub fn run() {
             trigger_auto_recovery,
             parse_guide_step,
             execute_step_automation,
+            execute_step_automation_chained,
             methods::key_listener::set_key_listener,
             methods::click_mirror::set_click_mirror,
             methods::click_mirror::pause_click_mirror,

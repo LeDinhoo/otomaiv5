@@ -32,24 +32,24 @@
 
   async function handleNextAction() {
     if (windowStore.autoPilot && currentAnalysis) {
-      const analysis = currentAnalysis as {
-        macro_type?: string;
-        travel_cmd?: string | null;
-        [key: string]: unknown;
-      };
       const titles = windowStore.allSyncedTitles;
 
-      for (const title of titles) {
-        try {
-          const step = currentAnalysis;
-
-          await invoke("execute_step_automation", {
-            step,
-            windowTitle: title,
+      try {
+        if (titles.length > 1) {
+          // Mode chaîné : envoie les commandes à tous les persos
+          // puis attend UNE SEULE FOIS (chargement parallèle)
+          await invoke("execute_step_automation_chained", {
+            step: currentAnalysis,
+            windowTitles: titles,
           });
-        } catch (e) {
-          console.error(`Erreur Auto-Pilot (${title}):`, e);
+        } else if (titles.length === 1) {
+          await invoke("execute_step_automation", {
+            step: currentAnalysis,
+            windowTitle: titles[0],
+          });
         }
+      } catch (e) {
+        console.error("Erreur Auto-Pilot:", e);
       }
 
       // Refocus après une automation multi-fenêtres

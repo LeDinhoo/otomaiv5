@@ -570,7 +570,7 @@
 // }
 
 use super::config::*;
-use super::engine::{click, execute, key, press, wait, write, wait_image};
+use super::engine::{Action, click, execute, execute_interleaved, key, press, wait, write, wait_image};
 use super::guide_parser::GuideResult;
 use super::potions;
 use crate::settings::AutomationSettings;
@@ -1044,7 +1044,7 @@ fn run_zaapi_sequence(
 
     execute(app_handle, sequence, window_title)?;
 
-    Ok(format!("Séquence Zaap '{}' + Zaapi '{}' terminée.", closest_city_name, zaapi_name))
+    Ok(format!("Séquence Zaap+Zaapi '{}' + '{}' terminée.", closest_city_name, zaapi_name))
 }
 
 fn run_zaap_zaapi_sequence(
@@ -1117,4 +1117,278 @@ fn run_zaap_zaapi_sequence(
     execute(app_handle, sequence, window_title)?;
 
     Ok(format!("Séquence Zaap '{}' + Zaapi '{}' terminée.", closest_city_name, zaapi_name))
+}
+
+// =============================================================================
+// EXÉCUTION CHAÎNÉE (multi-fenêtres) avec execute_interleaved
+// Chaque micro-action est exécutée sur TOUS les persos avant de passer à la suivante.
+// Les Wait ne sont payés qu'UNE SEULE FOIS.
+// =============================================================================
+
+pub fn execute_step_automation_chained(
+    app_handle: &AppHandle,
+    step: &GuideResult,
+    window_titles: &[String],
+    settings: &AutomationSettings,
+) -> Result<String, String> {
+    println!("🔗 [Chaîné] Démarrage pour {} fenêtres : {:?}", window_titles.len(), step.macro_type);
+
+    match step.macro_type.as_str() {
+        "classic" => {
+            if let Some(cmd) = &step.travel_cmd {
+                let sequence = vec![
+                    press("space", 1, 0),
+                    wait(settings.chat_type_delay),
+                    write(cmd),
+                    wait(settings.chat_type_delay),
+                    key("enter"),
+                    wait(settings.chat_validate_delay),
+                    key("enter"),
+                ];
+                execute_interleaved(app_handle, sequence, window_titles)?;
+            }
+            Ok("Travel classique chaîné.".to_string())
+        }
+
+        "potion_direct" => {
+            // Les potions utilisent des raccourcis spécifiques, on les fait par perso
+            if let Some(cmd) = &step.travel_cmd {
+                let win_manager = WindowManager::new();
+                for title in window_titles {
+                    win_manager.focus_by_title(title)?;
+                    match cmd.as_str() {
+                        "potion_bonta" => potions::potion_bonta(title)?,
+                        "potion_brakmar" => potions::potion_brakmar(title)?,
+                        _ => return Err(format!("Potion inconnue : {}", cmd)),
+                    };
+                }
+            }
+            Ok("Potion directe chaînée.".to_string())
+        }
+
+        macro_type if macro_type.starts_with("skis_") => {
+            let ski_key = match macro_type {
+                "skis_souples" => "7",
+                "skis_rustiques" => "8",
+                "skis_sombres" => "9",
+                "skis_glissants" => "0",
+                _ => return Err(format!("Type de skis inconnu : {}", macro_type)),
+            };
+
+            let mut sequence = vec![
+                press(ski_key, 2, 100),
+                wait(settings.map_load_delay),
+            ];
+
+            if let Some(cmd) = &step.travel_cmd {
+                if !is_zaap_destination(cmd, ZAAP_POSITIONS) {
+                    sequence.extend(vec![
+                        press("space", 1, 0),
+                        wait(settings.chat_type_delay),
+                        write(cmd),
+                        wait(settings.chat_type_delay),
+                        key("enter"),
+                        wait(settings.chat_validate_delay),
+                        key("enter"),
+                    ]);
+                }
+            }
+
+            execute_interleaved(app_handle, sequence, window_titles)?;
+            Ok(format!("Skis chaînés ({}).", macro_type))
+        }
+
+        "zaap" => {
+            let dest = step.macro_arg.as_ref().ok_or("Nom du Zaap manquant")?;
+            let candidates: Vec<String> = ZAAP_NAMES.iter().map(|s| s.to_string()).collect();
+            let clean_name = crate::methods::text_utils::correct_text(dest, &candidates);
+
+            let mut sequence = vec![
+                key("h"),
+                wait_image("resources/ui/zaap.png"),
+                click(POS_ZAAP_INPUT),
+                wait_image("resources/ui/zaap_text.png"),
+                write(&clean_name),
+                key("enter"),
+                wait(settings.map_load_delay),
+            ];
+
+            if let Some(cmd) = &step.travel_cmd {
+                if !is_zaap_destination(cmd, ZAAP_POSITIONS) {
+                    sequence.extend(vec![
+                        press("space", 1, 0),
+                        wait(settings.chat_type_delay),
+                        write(cmd),
+                        wait(settings.chat_type_delay),
+                        key("enter"),
+                        wait(settings.chat_validate_delay),
+                        key("enter"),
+                    ]);
+                }
+            }
+
+            execute_interleaved(app_handle, sequence, window_titles)?;
+            Ok(format!("Zaap '{}' chaîné.", clean_name))
+        }
+
+        "zaapi" => {
+            let dest = step.macro_arg.as_ref().ok_or("Nom du Zaapi manquant")?;
+            let sequence = build_zaapi_sequence(dest, step.travel_cmd.as_ref(), settings);
+            execute_interleaved(app_handle, sequence, window_titles)?;
+            Ok(format!("Zaapi '{}' chaîné.", dest))
+        }
+
+        "zaap_zaapi" => {
+            let zaap_name = step.macro_arg.as_ref().ok_or("Nom du Zaap manquant")?;
+            let zaapi_name = step.macro_arg2.as_ref().ok_or("Nom du Zaapi manquant")?;
+
+            let candidates: Vec<String> = ZAAP_NAMES.iter().map(|s| s.to_string()).collect();
+            let clean_zaap = crate::methods::text_utils::correct_text(zaap_name, &candidates);
+
+            let closest_city_name = if let Some(cmd) = &step.travel_cmd {
+                if let Some(coords) = extract_coordinates(cmd) {
+                    get_name_of_closest_city_zaap(coords)
+                } else { "Bonta".to_string() }
+            } else { "Bonta".to_string() };
+
+            let pos_zaapi = match closest_city_name.as_str() {
+                "Sufokia" => POS_ZAAPI_SUFOKIA,
+                "Brakmar" => POS_ZAAPI_BRAKMAR,
+                "Frigost" => POS_ZAAPI_FRIGOST,
+                _ => POS_ZAAPI_BONTA,
+            };
+            let zaapi_wait_time = match closest_city_name.as_str() {
+                "Sufokia" => settings.walk_sufokia,
+                "Brakmar" => settings.walk_brakmar,
+                "Frigost" => settings.walk_frigost,
+                _ => settings.walk_bonta,
+            };
+
+            let mut sequence = vec![
+                key("h"),
+                wait_image("resources/ui/zaap.png"),
+                click(POS_ZAAP_INPUT),
+                wait_image("resources/ui/zaap_text.png"),
+                write(&clean_zaap),
+                key("enter"),
+                wait(settings.map_load_delay),
+                click(pos_zaapi),
+                wait(zaapi_wait_time),
+                click(get_zaapi_category_pos(zaapi_name)),
+                wait(settings.input_react_delay),
+                click(POS_INPUT_TEXT_ZAAPI),
+                write(zaapi_name),
+                key("enter"),
+                wait(settings.map_load_delay),
+                wait(settings.chat_validate_delay),
+            ];
+
+            if let Some(cmd) = &step.travel_cmd {
+                if !is_zaap_destination(cmd, ZAAP_POSITIONS) {
+                    sequence.extend(vec![
+                        press("space", 1, 0),
+                        wait(settings.chat_type_delay),
+                        write(cmd),
+                        wait(settings.chat_type_delay),
+                        key("enter"),
+                        wait(settings.chat_validate_delay),
+                        key("enter"),
+                    ]);
+                }
+            }
+
+            execute_interleaved(app_handle, sequence, window_titles)?;
+            Ok(format!("Zaap '{}' + Zaapi '{}' chaîné.", clean_zaap, zaapi_name))
+        }
+
+        "potion_zaapi" => {
+            // Potions par perso d'abord
+            if let Some(potion_cmd) = &step.macro_arg2 {
+                let win_manager = WindowManager::new();
+                for title in window_titles {
+                    win_manager.focus_by_title(title)?;
+                    match potion_cmd.as_str() {
+                        "potion_bonta" => potions::potion_bonta(title)?,
+                        "potion_brakmar" => potions::potion_brakmar(title)?,
+                        _ => return Err("Potion d'optimisation inconnue".to_string()),
+                    };
+                }
+                thread::sleep(Duration::from_millis(settings.potion_anim_delay));
+            }
+
+            // Puis zaapi entrelacé
+            if let Some(dest) = &step.macro_arg {
+                let sequence = build_zaapi_sequence(dest, step.travel_cmd.as_ref(), settings);
+                execute_interleaved(app_handle, sequence, window_titles)?;
+                Ok(format!("Potion + Zaapi '{}' chaîné.", dest))
+            } else {
+                Err("Destination Zaapi manquante".to_string())
+            }
+        }
+
+        _ => {
+            Err(format!("Type de macro inconnu pour chaîné : {}", step.macro_type))
+        }
+    }
+}
+
+/// Construit la séquence d'actions pour un zaapi (réutilisé par "zaapi" et "potion_zaapi")
+fn build_zaapi_sequence(
+    zaapi_name: &str,
+    travel_cmd: Option<&String>,
+    settings: &AutomationSettings,
+) -> Vec<Action> {
+    let closest_city_name = if let Some(cmd) = travel_cmd {
+        if let Some(coords) = extract_coordinates(cmd) {
+            get_name_of_closest_city_zaap(coords)
+        } else { "Bonta".to_string() }
+    } else { "Bonta".to_string() };
+
+    let pos_zaapi = match closest_city_name.as_str() {
+        "Sufokia" => POS_ZAAPI_SUFOKIA,
+        "Brakmar" => POS_ZAAPI_BRAKMAR,
+        "Frigost" => POS_ZAAPI_FRIGOST,
+        _ => POS_ZAAPI_BONTA,
+    };
+    let zaapi_wait_time = match closest_city_name.as_str() {
+        "Sufokia" => settings.walk_sufokia,
+        "Brakmar" => settings.walk_brakmar,
+        "Frigost" => settings.walk_frigost,
+        _ => settings.walk_bonta,
+    };
+
+    let mut sequence = vec![
+        key("h"),
+        wait_image("resources/ui/zaap.png"),
+        click(POS_ZAAP_INPUT),
+        wait_image("resources/ui/zaap_text.png"),
+        write(closest_city_name.as_str()),
+        key("enter"),
+        wait(settings.map_load_delay),
+        click(pos_zaapi),
+        wait(zaapi_wait_time),
+        click(get_zaapi_category_pos(zaapi_name)),
+        wait(settings.input_react_delay),
+        click(POS_INPUT_TEXT_ZAAPI),
+        write(zaapi_name),
+        key("enter"),
+        wait(settings.map_load_delay),
+        wait(settings.chat_validate_delay),
+    ];
+
+    if let Some(cmd) = travel_cmd {
+        if !is_zaap_destination(cmd, ZAAP_POSITIONS) {
+            sequence.extend(vec![
+                press("space", 1, 0),
+                wait(settings.chat_type_delay),
+                write(cmd),
+                wait(settings.chat_type_delay),
+                key("enter"),
+                wait(settings.chat_validate_delay),
+                key("enter"),
+            ]);
+        }
+    }
+
+    sequence
 }
