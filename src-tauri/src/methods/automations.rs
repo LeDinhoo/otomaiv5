@@ -1203,11 +1203,21 @@ pub fn execute_step_automation_chained(
             let candidates: Vec<String> = ZAAP_NAMES.iter().map(|s| s.to_string()).collect();
             let clean_name = crate::methods::text_utils::correct_text(dest, &candidates);
 
-            let mut sequence = vec![
+            // Phase 1 : Préparation UI (par fenêtre, une à la fois)
+            let prep = vec![
                 key("h"),
                 wait_image("resources/ui/zaap.png"),
                 click(POS_ZAAP_INPUT),
                 wait_image("resources/ui/zaap_text.png"),
+            ];
+            let win_manager = WindowManager::new();
+            for title in window_titles {
+                win_manager.focus_by_title(title)?;
+                execute(app_handle, prep.clone(), title)?;
+            }
+
+            // Phase 2 : Envoi du nom + travel (entrelacé)
+            let mut sequence = vec![
                 write(&clean_name),
                 key("enter"),
                 wait(settings.map_load_delay),
@@ -1233,7 +1243,17 @@ pub fn execute_step_automation_chained(
 
         "zaapi" => {
             let dest = step.macro_arg.as_ref().ok_or("Nom du Zaapi manquant")?;
-            let sequence = build_zaapi_sequence(dest, step.travel_cmd.as_ref(), settings);
+
+            // Phase 1 : Préparation UI (par fenêtre)
+            let prep = build_zaap_prep_sequence();
+            let win_manager = WindowManager::new();
+            for title in window_titles {
+                win_manager.focus_by_title(title)?;
+                execute(app_handle, prep.clone(), title)?;
+            }
+
+            // Phase 2 : Séquence zaapi (entrelacé)
+            let sequence = build_zaapi_main_sequence(dest, step.travel_cmd.as_ref(), settings);
             execute_interleaved(app_handle, sequence, window_titles)?;
             Ok(format!("Zaapi '{}' chaîné.", dest))
         }
@@ -1245,6 +1265,15 @@ pub fn execute_step_automation_chained(
             let candidates: Vec<String> = ZAAP_NAMES.iter().map(|s| s.to_string()).collect();
             let clean_zaap = crate::methods::text_utils::correct_text(zaap_name, &candidates);
 
+            // Phase 1 : Préparation UI (par fenêtre)
+            let prep = build_zaap_prep_sequence();
+            let win_manager = WindowManager::new();
+            for title in window_titles {
+                win_manager.focus_by_title(title)?;
+                execute(app_handle, prep.clone(), title)?;
+            }
+
+            // Phase 2 : Zaap + marche + zaapi (entrelacé)
             let closest_city_name = if let Some(cmd) = &step.travel_cmd {
                 if let Some(coords) = extract_coordinates(cmd) {
                     get_name_of_closest_city_zaap(coords)
@@ -1265,10 +1294,6 @@ pub fn execute_step_automation_chained(
             };
 
             let mut sequence = vec![
-                key("h"),
-                wait_image("resources/ui/zaap.png"),
-                click(POS_ZAAP_INPUT),
-                wait_image("resources/ui/zaap_text.png"),
                 write(&clean_zaap),
                 key("enter"),
                 wait(settings.map_load_delay),
@@ -1303,8 +1328,8 @@ pub fn execute_step_automation_chained(
 
         "potion_zaapi" => {
             // Potions par perso d'abord
+            let win_manager = WindowManager::new();
             if let Some(potion_cmd) = &step.macro_arg2 {
-                let win_manager = WindowManager::new();
                 for title in window_titles {
                     win_manager.focus_by_title(title)?;
                     match potion_cmd.as_str() {
@@ -1316,9 +1341,16 @@ pub fn execute_step_automation_chained(
                 thread::sleep(Duration::from_millis(settings.potion_anim_delay));
             }
 
-            // Puis zaapi entrelacé
             if let Some(dest) = &step.macro_arg {
-                let sequence = build_zaapi_sequence(dest, step.travel_cmd.as_ref(), settings);
+                // Phase 1 : Préparation UI (par fenêtre)
+                let prep = build_zaap_prep_sequence();
+                for title in window_titles {
+                    win_manager.focus_by_title(title)?;
+                    execute(app_handle, prep.clone(), title)?;
+                }
+
+                // Phase 2 : Séquence zaapi (entrelacé)
+                let sequence = build_zaapi_main_sequence(dest, step.travel_cmd.as_ref(), settings);
                 execute_interleaved(app_handle, sequence, window_titles)?;
                 Ok(format!("Potion + Zaapi '{}' chaîné.", dest))
             } else {
@@ -1332,8 +1364,19 @@ pub fn execute_step_automation_chained(
     }
 }
 
-/// Construit la séquence d'actions pour un zaapi (réutilisé par "zaapi" et "potion_zaapi")
-fn build_zaapi_sequence(
+/// Préparation UI zaap : h -> attente image -> click input -> attente texte
+/// Exécutée par fenêtre une à la fois avant l'envoi entrelacé
+fn build_zaap_prep_sequence() -> Vec<Action> {
+    vec![
+        key("h"),
+        wait_image("resources/ui/zaap.png"),
+        click(POS_ZAAP_INPUT),
+        wait_image("resources/ui/zaap_text.png"),
+    ]
+}
+
+/// Séquence zaapi SANS la prep UI (réutilisé par "zaapi" et "potion_zaapi")
+fn build_zaapi_main_sequence(
     zaapi_name: &str,
     travel_cmd: Option<&String>,
     settings: &AutomationSettings,
@@ -1358,10 +1401,6 @@ fn build_zaapi_sequence(
     };
 
     let mut sequence = vec![
-        key("h"),
-        wait_image("resources/ui/zaap.png"),
-        click(POS_ZAAP_INPUT),
-        wait_image("resources/ui/zaap_text.png"),
         write(closest_city_name.as_str()),
         key("enter"),
         wait(settings.map_load_delay),

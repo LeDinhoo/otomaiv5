@@ -98,7 +98,7 @@ pub fn execute_interleaved(
                 thread::sleep(Duration::from_millis(*ms));
             }
 
-            // WaitForImage : focus chaque fenêtre puis attendre l'image dessus
+            // WaitForImage : focus chaque fenêtre et attendre l'image dessus avant de passer à la suivante
             Action::WaitForImage { path } => {
                 let resource_path = app_handle.path()
                     .resolve(path, BaseDirectory::Resource)
